@@ -3,13 +3,17 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Forex Market Structure Analyzer API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: analysis
+    description: Forex market analysis operations
+  - name: history
+    description: Analysis history operations
 paths:
   /healthz:
     get:
@@ -24,6 +28,81 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /analysis/{pair}:
+    get:
+      operationId: getAnalysis
+      tags: [analysis]
+      summary: Get full market analysis for a currency pair
+      description: Returns trend H1, trend M15, entry confidence, checklist, and market summary
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [EURUSD, GBPUSD, USDJPY, XAUUSD, BTCUSD]
+          description: Currency pair to analyze
+      responses:
+        "200":
+          description: Market analysis result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketAnalysis"
+        "400":
+          description: Invalid pair
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /analysis/{pair}/history:
+    get:
+      operationId: getAnalysisHistory
+      tags: [history]
+      summary: Get analysis history for a currency pair
+      description: Returns the last N analysis snapshots stored in the database
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [EURUSD, GBPUSD, USDJPY, XAUUSD, BTCUSD]
+          description: Currency pair
+      responses:
+        "200":
+          description: List of historical analysis snapshots
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AnalysisSnapshot"
+        "400":
+          description: Invalid pair
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /analysis/pairs/summary:
+    get:
+      operationId: getAllPairsSummary
+      tags: [analysis]
+      summary: Get summary for all pairs
+      description: Returns bias and confidence for every supported pair in one call
+      responses:
+        "200":
+          description: Summary for all pairs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PairSummary"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +113,173 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    TrendData:
+      type: object
+      description: Trend direction with market structure explanation
+      properties:
+        direction:
+          type: string
+          enum: [BUY, SELL]
+          description: Trend direction
+        structure:
+          type: string
+          description: Market structure label (e.g. HH-HL or LH-LL)
+        explanation:
+          type: string
+          description: Short description of current market structure
+      required:
+        - direction
+        - structure
+        - explanation
+
+    ChecklistItem:
+      type: object
+      description: Single entry analysis condition
+      properties:
+        label:
+          type: string
+          description: Human-readable label of the condition
+        passed:
+          type: boolean
+          description: Whether the condition is met
+        weight:
+          type: number
+          description: Weight of this condition in the confidence score (0-1)
+      required:
+        - label
+        - passed
+        - weight
+
+    MarketSummary:
+      type: object
+      description: Overall trading bias summary with reasoning
+      properties:
+        bias:
+          type: string
+          enum: [BUY, SELL]
+        confidence:
+          type: number
+          description: Confidence percentage 0-100
+        confidenceLevel:
+          type: string
+          enum: [High, Medium, Low]
+        reason:
+          type: string
+          description: Multi-line narrative explaining the bias
+      required:
+        - bias
+        - confidence
+        - confidenceLevel
+        - reason
+
+    MarketAnalysis:
+      type: object
+      description: Full market analysis response for a pair
+      properties:
+        pair:
+          type: string
+          description: Currency pair identifier
+        timestamp:
+          type: string
+          format: date-time
+          description: Time when the analysis was generated
+        trendH1:
+          $ref: "#/components/schemas/TrendData"
+        trendM15:
+          $ref: "#/components/schemas/TrendData"
+        confidence:
+          type: number
+          description: Overall entry confidence 0-100
+        confidenceLevel:
+          type: string
+          enum: [High, Medium, Low]
+        checklist:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChecklistItem"
+        summary:
+          $ref: "#/components/schemas/MarketSummary"
+      required:
+        - pair
+        - timestamp
+        - trendH1
+        - trendM15
+        - confidence
+        - confidenceLevel
+        - checklist
+        - summary
+
+    AnalysisSnapshot:
+      type: object
+      description: A stored analysis snapshot from history
+      properties:
+        id:
+          type: number
+        pair:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        trendH1Direction:
+          type: string
+          enum: [BUY, SELL]
+        trendM15Direction:
+          type: string
+          enum: [BUY, SELL]
+        confidence:
+          type: number
+        confidenceLevel:
+          type: string
+          enum: [High, Medium, Low]
+        bias:
+          type: string
+          enum: [BUY, SELL]
+      required:
+        - id
+        - pair
+        - timestamp
+        - trendH1Direction
+        - trendM15Direction
+        - confidence
+        - confidenceLevel
+        - bias
+
+    PairSummary:
+      type: object
+      description: Quick summary for a single pair
+      properties:
+        pair:
+          type: string
+        bias:
+          type: string
+          enum: [BUY, SELL]
+        confidence:
+          type: number
+        confidenceLevel:
+          type: string
+          enum: [High, Medium, Low]
+        trendH1:
+          type: string
+          enum: [BUY, SELL]
+        trendM15:
+          type: string
+          enum: [BUY, SELL]
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - pair
+        - bias
+        - confidence
+        - confidenceLevel
+        - trendH1
+        - trendM15
+        - timestamp

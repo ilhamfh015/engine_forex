@@ -1,10 +1,11 @@
-# [Project name]
+# Forex Market Structure Analyzer
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A single-page professional trading dashboard that helps Forex traders analyze market structure, entry confidence, and trend direction — without executing trades.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/forex-dashboard run dev` — run the frontend (port auto-assigned)
+- `pnpm --filter @workspace/api-server run dev` — run the API server (port 8080)
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
@@ -14,23 +15,40 @@ _Replace the heading above with the project's name, and this line with one sente
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
+- Frontend: React + Vite, TailwindCSS v4, Framer Motion, Lucide React
 - API: Express 5
 - DB: PostgreSQL + Drizzle ORM
 - Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
+- API codegen: Orval (from OpenAPI spec in `lib/api-spec/openapi.yaml`)
 - Build: esbuild (CJS bundle)
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `lib/api-spec/openapi.yaml` — Single source of truth for all API contracts
+- `lib/db/src/schema/marketAnalysis.ts` — Market analysis DB table schema
+- `artifacts/api-server/src/services/` — All business logic (MarketStructureService, EntryConfidenceService, SummaryService, TradingViewService)
+- `artifacts/api-server/src/routes/analysis.ts` — Dashboard API routes
+- `artifacts/forex-dashboard/src/pages/Dashboard.tsx` — Main dashboard page
+- `artifacts/forex-dashboard/src/components/` — Reusable UI components (TrendCard, ConfidenceCard, SummaryCard, PairsOverview, TradingViewWidget, Header)
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- **Service Pattern**: All business logic lives in `artifacts/api-server/src/services/`. Controllers (routes) are thin — only HTTP in/out. This makes it easy to swap simulated data with real MT5 API calls later.
+- **Deterministic simulation**: Market analysis uses a seeded pseudo-random system keyed to pair + 15-min time bucket. This means data updates every 15 minutes (H1 every 60 min) without requiring a live broker connection.
+- **Confidence scoring**: Weighted 4-factor checklist (Harga dekat HL/LH 35%, Confirmation Candle 25%, Momentum Candle 20%, Risk Reward 20%). Ranges: Low 0–40%, Medium 41–70%, High 71–100%.
+- **DB snapshots**: Every `/analysis/:pair` request fire-and-forgets a snapshot to `market_analysis` table for history tracking and future ML training.
+- **Dark mode**: Forced via `class="dark"` on `<html>` in `index.html`. Do NOT use `@apply dark` in CSS — it's not a utility class in TailwindCSS v4.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- Supported pairs: EURUSD, GBPUSD, USDJPY, XAUUSD, BTCUSD
+- Trend H1 & M15: BUY (HH-HL) or SELL (LH-LL)
+- Entry Confidence: 0–100% with circular progress bar
+- Entry Analysis: 4-item checklist with pass/fail per condition
+- Market Summary: bias, confidence %, confidence level, narrative reason
+- All Pairs Overview: clickable strip showing all 5 pairs at a glance
+- TradingView Widget: embeds live chart for selected pair
+- Auto-refresh: every 60 seconds via React Query `refetchInterval`
 
 ## User preferences
 
@@ -38,8 +56,13 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- **TailwindCSS v4 dark mode**: Use `class="dark"` on `<html>`, never `@apply dark` in CSS (causes "Cannot apply unknown utility class `dark`" error)
+- **Zod v3 integers**: Use `type: number` not `type: integer` in OpenAPI spec. Orval generates `zod.int()` for integers which doesn't exist in Zod v3.
+- **Orval param name collisions**: When an operation has both path params AND query params, they both generate a type named `{OperationId}Params`, causing TS2308. Solution: remove query params or rename the operation.
+- **API client imports**: Always import from `@workspace/api-client-react`, never from `@workspace/api-client-react/generated/api` (not an exported subpath).
+- **lib declarations**: After changing `lib/db/src/schema/`, run `pnpm run typecheck:libs` before checking artifact packages, otherwise new exports won't be visible.
 
 ## Pointers
 
 - See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- To connect real MT5 data: replace `MarketStructureService.ts` `analyzeTrend()` and `EntryConfidenceService.ts` `conditionPassed()` with live broker API calls

@@ -1,0 +1,3 @@
+- [TailwindCSS v4 dark mode](tailwind-v4-dark.md) — never `@apply dark` in CSS; use `class="dark"` on `<html>` in index.html
+- [OpenAPI + Orval v3 gotchas](orval-zod-v3-gotchas.md) — two codegen traps: `integer` → `zod.int()` fails in Zod v3; path+query params on same op → name collision
+- [API client import paths](api-client-imports.md) — always import from `@workspace/api-client-react` (the `.` export), never from `/generated/api` subpath
