@@ -1,92 +1,166 @@
 /**
  * MarketStructureService
  *
- * Analyzes market structure for a given currency pair and timeframe.
- * Returns a BUY or SELL direction based on Higher High / Higher Low
- * or Lower High / Lower Low pattern detection.
+ * Dual-confirmation trend detection using:
+ *   1. EMA(8) vs EMA(21) crossover  — primary trend bias
+ *   2. Pivot swing structure (HH-HL / LH-LL) — structural confirmation
  *
- * NOTE: Currently uses a deterministic simulation based on seeded
- * pseudo-random values tied to the pair + time bucket.
- * Replace `getSimulatedOHLC()` with real MT5 / broker API calls
- * to use live data.
+ * Signal strength levels:
+ *   "strong"   — EMA and swing both agree
+ *   "moderate" — EMA confirms, swing unclear or partial
+ *   "swing"    — Swing confirms, EMA slightly mixed
+ *   "weak"     — Fallback: recent candle majority
  */
 
+import { calcEMA, findSwingHighs, findSwingLows } from "./TwelveDataService.js";
+import type { Candle } from "./TwelveDataService.js";
+
 export type TrendDirection = "BUY" | "SELL";
+export type SignalStrength = "strong" | "moderate" | "swing" | "weak";
 
 export interface TrendData {
   direction: TrendDirection;
   structure: string;
   explanation: string;
+  strength: SignalStrength;
+  ema8: number;
+  ema21: number;
+  currentPrice: number;
 }
 
-/** Supported currency pairs */
 export const SUPPORTED_PAIRS = ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "BTCUSD"] as const;
 export type SupportedPair = (typeof SUPPORTED_PAIRS)[number];
 
 /**
- * Deterministically selects a value from an array using a numeric seed.
- * Ensures the same pair + time bucket always returns the same value
- * within a given 15-minute window, changing slowly over time.
- */
-function seededIndex(seed: number, length: number): number {
-  return Math.abs(seed) % length;
-}
-
-/**
- * Generates a stable numeric seed from a pair name and the current
- * time bucket.  The bucket changes every `intervalMinutes` minutes,
- * so the analysis updates periodically without requiring live data.
- */
-function getSeed(pair: string, intervalMinutes = 15): number {
-  const bucket = Math.floor(Date.now() / (intervalMinutes * 60 * 1000));
-  // Simple hash: sum char codes × bucket
-  const charSum = pair.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
-  return (charSum * 7 + bucket * 13) % 1000;
-}
-
-/**
- * Returns the trend analysis for a specific pair and timeframe.
+ * Analyzes trend direction from OHLCV candles using EMA + swing structure.
  *
- * @param pair   - e.g. "EURUSD"
- * @param timeframe - "H1" | "M15"
+ * @param candles - Ordered OLDEST → NEWEST (as returned by TwelveDataService)
  */
-export function analyzeTrend(pair: string, timeframe: "H1" | "M15"): TrendData {
-  // Use different interval buckets for H1 vs M15 to create realistic divergence
-  const intervalMinutes = timeframe === "H1" ? 60 : 15;
-  const seed = getSeed(pair + timeframe, intervalMinutes);
+export function analyzeTrendFromCandles(candles: Candle[]): TrendData {
+  const n = candles.length;
+  const last = candles[n - 1];
 
-  const buyStructures = ["HH-HL", "HH-HL", "HH-HL"];
-  const sellStructures = ["LH-LL", "LH-LL", "LH-LL"];
+  // ── 1. EMA trend bias ────────────────────────────────────────────────────
+  const ema8arr = calcEMA(candles, 8);
+  const ema21arr = calcEMA(candles, 21);
+  const ema8 = ema8arr[n - 1];
+  const ema21 = ema21arr[n - 1];
+  const prevEma8 = ema8arr[n - 2] ?? ema8;
+  const prevEma21 = ema21arr[n - 2] ?? ema21;
 
-  const buyExplanations = [
-    "Harga mencetak Higher High dan Higher Low. Struktur bullish terkonfirmasi.",
-    "Breakout di atas swing high sebelumnya. Buyer mendominasi momentum.",
-    "Higher Low terbentuk di atas level support. Tekanan beli meningkat.",
-  ];
+  // "Golden/death cross momentum": current AND previous bar EMA slope agree
+  const emaBullish =
+    ema8 > ema21 &&
+    last.close > ema21 &&
+    (ema8 > prevEma8 || ema21 < prevEma21); // at least one EMA moving in trend direction
 
-  const sellExplanations = [
-    "Harga mencetak Lower High dan Lower Low. Struktur bearish terkonfirmasi.",
-    "Gagal menembus swing high. Seller mengambil kendali momentum.",
-    "Lower High terbentuk di bawah resistance. Tekanan jual mendominasi.",
-  ];
+  const emaBearish =
+    ema8 < ema21 &&
+    last.close < ema21 &&
+    (ema8 < prevEma8 || ema21 > prevEma21);
 
-  // Slight bias: pairs tend to trend more often than not
-  const directionSeed = seededIndex(seed, 10);
-  const direction: TrendDirection = directionSeed < 6 ? "BUY" : "SELL";
+  // ── 2. Swing structure (HH-HL / LH-LL) ──────────────────────────────────
+  const swingHighs = findSwingHighs(candles, 2);
+  const swingLows = findSwingLows(candles, 2);
 
-  if (direction === "BUY") {
-    const idx = seededIndex(seed, buyStructures.length);
-    return {
-      direction: "BUY",
-      structure: buyStructures[idx],
-      explanation: buyExplanations[idx],
-    };
-  } else {
-    const idx = seededIndex(seed, sellStructures.length);
-    return {
-      direction: "SELL",
-      structure: sellStructures[idx],
-      explanation: sellExplanations[idx],
-    };
+  const hasEnoughSwings = swingHighs.length >= 2 && swingLows.length >= 2;
+
+  const hhhl =
+    hasEnoughSwings &&
+    swingHighs[swingHighs.length - 1] > swingHighs[swingHighs.length - 2] &&
+    swingLows[swingLows.length - 1] > swingLows[swingLows.length - 2];
+
+  const lhll =
+    hasEnoughSwings &&
+    swingHighs[swingHighs.length - 1] < swingHighs[swingHighs.length - 2] &&
+    swingLows[swingLows.length - 1] < swingLows[swingLows.length - 2];
+
+  // ── 3. Combine signals ───────────────────────────────────────────────────
+  if (emaBullish && hhhl) {
+    return buildResult("BUY", "strong", "strong", ema8, ema21, last.close);
+  }
+  if (emaBearish && lhll) {
+    return buildResult("SELL", "strong", "strong", ema8, ema21, last.close);
+  }
+  if (emaBullish && lhll) {
+    // EMA says BUY but swing says SELL — EMA is more current, use it with caution
+    return buildResult("BUY", "LH-LL", "moderate", ema8, ema21, last.close);
+  }
+  if (emaBearish && hhhl) {
+    // EMA says SELL but swing says BUY — EMA is more current
+    return buildResult("SELL", "HH-HL", "moderate", ema8, ema21, last.close);
+  }
+  if (emaBullish) {
+    return buildResult("BUY", "moderate", "moderate", ema8, ema21, last.close);
+  }
+  if (emaBearish) {
+    return buildResult("SELL", "moderate", "moderate", ema8, ema21, last.close);
+  }
+  if (hhhl) {
+    return buildResult("BUY", "swing", "swing", ema8, ema21, last.close);
+  }
+  if (lhll) {
+    return buildResult("SELL", "swing", "swing", ema8, ema21, last.close);
+  }
+
+  // Fallback: recent candle majority
+  const recentBullish = candles.slice(-5).filter((c) => c.close > c.open).length;
+  const dir: TrendDirection = recentBullish >= 3 ? "BUY" : "SELL";
+  return buildResult(dir, "weak", "weak", ema8, ema21, last.close);
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function buildResult(
+  direction: TrendDirection,
+  structureHint: string,
+  strength: SignalStrength,
+  ema8: number,
+  ema21: number,
+  currentPrice: number,
+): TrendData {
+  const structure = structureHint === "strong"
+    ? (direction === "BUY" ? "HH-HL" : "LH-LL")
+    : structureHint === "moderate" || structureHint === "weak"
+      ? (direction === "BUY" ? "HH-HL" : "LH-LL")
+      : structureHint; // "swing" or passed directly
+
+  // Use normalized structure labels
+  const normalizedStructure =
+    direction === "BUY" ? "HH-HL" : "LH-LL";
+
+  return {
+    direction,
+    structure: normalizedStructure,
+    explanation: buildExplanation(direction, strength),
+    strength,
+    ema8: parseFloat(ema8.toFixed(5)),
+    ema21: parseFloat(ema21.toFixed(5)),
+    currentPrice: parseFloat(currentPrice.toFixed(5)),
+  };
+}
+
+function buildExplanation(direction: TrendDirection, strength: SignalStrength): string {
+  const dir = direction === "BUY" ? "bullish" : "bearish";
+  const dirID = direction === "BUY" ? "BUY" : "SELL";
+
+  switch (strength) {
+    case "strong":
+      return direction === "BUY"
+        ? "EMA8 di atas EMA21 dan harga mencetak HH-HL. Tren bullish kuat terkonfirmasi dari dua sisi."
+        : "EMA8 di bawah EMA21 dan harga mencetak LH-LL. Tren bearish kuat terkonfirmasi dari dua sisi.";
+    case "moderate":
+      return direction === "BUY"
+        ? "EMA8 > EMA21, harga di atas EMA21. Bias bullish dari momentum EMA, swing masih berkembang."
+        : "EMA8 < EMA21, harga di bawah EMA21. Bias bearish dari momentum EMA, swing masih berkembang.";
+    case "swing":
+      return direction === "BUY"
+        ? "Struktur HH-HL terkonfirmasi dari pivot swing. EMA belum fully crossed — menunggu konfirmasi lanjutan."
+        : "Struktur LH-LL terkonfirmasi dari pivot swing. EMA belum fully crossed — menunggu konfirmasi lanjutan.";
+    case "weak":
+    default:
+      return direction === "BUY"
+        ? "Price action mayoritas bullish pada candle terakhir. Sinyal lemah — perlu konfirmasi lebih lanjut."
+        : "Price action mayoritas bearish pada candle terakhir. Sinyal lemah — perlu konfirmasi lebih lanjut.";
   }
 }

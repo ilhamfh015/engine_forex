@@ -10,9 +10,10 @@ import {
   GetAnalysisParams,
   GetAnalysisHistoryParams,
 } from "@workspace/api-zod";
-import { analyzeTrend, SUPPORTED_PAIRS } from "../services/MarketStructureService.js";
+import { analyzeTrendFromCandles, SUPPORTED_PAIRS } from "../services/MarketStructureService.js";
 import { calculateConfidence } from "../services/EntryConfidenceService.js";
 import { generateSummary } from "../services/SummaryService.js";
+import { getCandles } from "../services/TwelveDataService.js";
 import { db, marketAnalysisTable } from "@workspace/db";
 import { desc, eq } from "drizzle-orm";
 
@@ -21,9 +22,8 @@ const router: IRouter = Router();
 /**
  * GET /analysis/:pair
  *
- * Returns the full market analysis for a currency pair.
- * Generates analysis on-the-fly using services, then stores
- * a snapshot to the database for history tracking.
+ * Returns the full market analysis for a currency pair using live Twelve Data candles.
+ * Fetches H1 and M15 candles in parallel (served from cache after first call).
  */
 router.get("/analysis/:pair", async (req: Request, res: Response) => {
   const parsed = GetAnalysisParams.safeParse(req.params);
@@ -35,17 +35,29 @@ router.get("/analysis/:pair", async (req: Request, res: Response) => {
   const { pair } = parsed.data;
 
   try {
-    // 1. Analyze market structure for both timeframes
-    const trendH1 = analyzeTrend(pair, "H1");
-    const trendM15 = analyzeTrend(pair, "M15");
+    // 1. Fetch live candles for both timeframes in parallel (cached per TTL)
+    //    50 candles gives ~50h of H1 context and ~12.5h of M15 for robust swing detection.
+    const [candlesH1, candlesM15] = await Promise.all([
+      getCandles(pair, "H1", 50),
+      getCandles(pair, "M15", 50),
+    ]);
 
-    // 2. Calculate entry confidence
-    const { score, level, checklist } = calculateConfidence(pair, trendH1.direction, trendM15.direction);
+    // 2. Analyze market structure from real candles
+    const trendH1 = analyzeTrendFromCandles(candlesH1);
+    const trendM15 = analyzeTrendFromCandles(candlesM15);
 
-    // 3. Generate market summary
+    // 3. Calculate entry confidence using M15 candles (most granular recent data)
+    const { score, level, checklist } = calculateConfidence(
+      pair,
+      trendH1.direction,
+      trendM15.direction,
+      candlesM15,
+    );
+
+    // 4. Generate market summary
     const summary = generateSummary(pair, trendH1.direction, trendM15.direction, score, level, checklist);
 
-    // 4. Persist snapshot to database (fire-and-forget, do not block response)
+    // 5. Persist snapshot to database (fire-and-forget, do not block response)
     db.insert(marketAnalysisTable)
       .values({
         pair,
@@ -64,7 +76,7 @@ router.get("/analysis/:pair", async (req: Request, res: Response) => {
         req.log.warn({ err }, "Failed to persist analysis snapshot");
       });
 
-    // 5. Return full analysis
+    // 6. Return full analysis
     res.json({
       pair,
       timestamp: new Date().toISOString(),
@@ -77,7 +89,8 @@ router.get("/analysis/:pair", async (req: Request, res: Response) => {
     });
   } catch (err) {
     req.log.error({ err }, "Error generating analysis");
-    res.status(500).json({ error: "Internal server error" });
+    const message = err instanceof Error ? err.message : "Internal server error";
+    res.status(500).json({ error: message });
   }
 });
 
@@ -123,18 +136,41 @@ router.get("/analysis/:pair/history", async (req: Request, res: Response) => {
 /**
  * GET /analysis/pairs/summary
  *
- * Returns a quick summary for all supported pairs.
- * Generates on-the-fly — no DB read needed for this endpoint.
+ * Returns a quick summary for all supported pairs using live Twelve Data candles.
+ * Processes pairs sequentially to avoid burst API usage (cache handles repeat calls).
  */
 router.get("/analysis/pairs/summary", async (req: Request, res: Response) => {
   try {
-    const summaries = SUPPORTED_PAIRS.map((pair) => {
-      const trendH1 = analyzeTrend(pair, "H1");
-      const trendM15 = analyzeTrend(pair, "M15");
-      const { score, level } = calculateConfidence(pair, trendH1.direction, trendM15.direction);
+    // Process pairs sequentially so we never burst more than 2 concurrent
+    // Twelve Data requests at once (H1 + M15 for one pair in parallel).
+    // In-flight deduplication in TwelveDataService means repeated callers
+    // share a single fetch, so the cache fills quickly after the first load.
+    const summaries: Array<{
+      pair: string;
+      bias: string;
+      confidence: number;
+      confidenceLevel: string;
+      trendH1: string;
+      trendM15: string;
+      timestamp: string;
+    }> = [];
+
+    for (const pair of SUPPORTED_PAIRS) {
+      const [candlesH1, candlesM15] = await Promise.all([
+        getCandles(pair, "H1", 50),
+        getCandles(pair, "M15", 50),
+      ]);
+      const trendH1 = analyzeTrendFromCandles(candlesH1);
+      const trendM15 = analyzeTrendFromCandles(candlesM15);
+      const { score, level } = calculateConfidence(
+        pair,
+        trendH1.direction,
+        trendM15.direction,
+        candlesM15,
+      );
       const summary = generateSummary(pair, trendH1.direction, trendM15.direction, score, level, []);
 
-      return {
+      summaries.push({
         pair,
         bias: summary.bias,
         confidence: score,
@@ -142,13 +178,14 @@ router.get("/analysis/pairs/summary", async (req: Request, res: Response) => {
         trendH1: trendH1.direction,
         trendM15: trendM15.direction,
         timestamp: new Date().toISOString(),
-      };
-    });
+      });
+    }
 
     res.json(summaries);
   } catch (err) {
     req.log.error({ err }, "Error generating pairs summary");
-    res.status(500).json({ error: "Internal server error" });
+    const message = err instanceof Error ? err.message : "Internal server error";
+    res.status(500).json({ error: message });
   }
 });
 
