@@ -4,10 +4,11 @@
  * Calculates entry confidence (0–100%) from real M15 OHLCV candles.
  *
  * Conditions and weights:
- *   1. Harga dekat HL/LH  (35%) — price in "value zone" near EMA21, not overextended
+ *   1. Harga dekat HL/LH  (35%) — price in value zone near EMA21, not overextended
  *   2. Confirmation Candle (25%) — at least 1 of last 2 closed candles confirms trend
- *   3. Momentum Candle     (20%) — any of last 5 candles shows strong directional body
- *   4. Risk Reward Bagus   (20%) — RR ≥ 1.5 using swing-based TP and ATR-capped SL
+ *   3. Momentum Candle     (20%) — any of last 5 candles has strong directional body (≥55%)
+ *   4. Risk Reward Bagus   (20%) — RR ≥ 1.5 using swing TP / ATR-based SL
+ *   Alignment bonus (+5%)  — H1 and M15 directions agree
  */
 
 import type { Candle } from "./TwelveDataService.js";
@@ -28,97 +29,75 @@ export interface ConfidenceResult {
   checklist: ChecklistItem[];
 }
 
-const CONDITIONS: Array<{ label: string; weight: number }> = [
-  { label: "Harga dekat HL/LH", weight: 0.35 },
-  { label: "Confirmation Candle", weight: 0.25 },
-  { label: "Momentum Candle", weight: 0.20 },
-  { label: "Risk Reward Bagus", weight: 0.20 },
-];
+// ─── Individual condition checks ──────────────────────────────────────────────
 
 /**
- * Condition 1 — Price in value zone (near EMA21, not overextended).
+ * Condition 1 — Price in value zone (near EMA21 or recent swing bounce).
  *
- * In a trending market the HL/LH "zone" IS the EMA21:
- *   BUY:  price above EMA21 (trend confirmed) AND within 1.5 ATR of EMA21
- *         → price pulled back to value zone, not overextended above
- *   SELL: price below EMA21 AND within 1.5 ATR of EMA21
- *         → price rallied to value zone, not overextended below
- *
- * Also accepts when the most recent swing low (BUY) or swing high (SELL)
- * was formed within the last 6 candles — fresh bounce from structure.
+ * BUY: price above EMA21 AND within 1.5 ATR above it (not overextended upward)
+ *      OR: price within 2 ATR above last swing low (fresh HL bounce)
+ * SELL: price below EMA21 AND within 1.5 ATR below it
+ *      OR: price within 2 ATR below last swing high (fresh LH rejection)
  */
-function checkNearHLLH(candles: Candle[], direction: TrendDirection, atr: number): boolean {
+function checkNearHLLH(
+  candles: Candle[],
+  direction: TrendDirection,
+  atr: number,
+): boolean {
   const n = candles.length;
   const current = candles[n - 1].close;
   const ema21arr = calcEMA(candles, 21);
   const ema21 = ema21arr[n - 1];
 
-  // EMA21 proximity check
-  const distFromEMA = Math.abs(current - ema21);
-  if (distFromEMA <= 1.5 * atr) {
-    // For BUY: price must be at or above EMA21 (not below it)
-    // For SELL: price must be at or below EMA21
-    if (direction === "BUY" && current >= ema21) return true;
-    if (direction === "SELL" && current <= ema21) return true;
+  const swingHighs = findSwingHighs(candles, 2, atr, 0.3);
+  const swingLows = findSwingLows(candles, 2, atr, 0.3);
+
+  if (direction === "BUY") {
+    // EMA21 proximity
+    if (current >= ema21 && current - ema21 <= 1.5 * atr) return true;
+    // Fresh swing low bounce
+    if (swingLows.length > 0) {
+      const lastLow = swingLows[swingLows.length - 1];
+      if (current >= lastLow && current - lastLow <= 2 * atr) return true;
+    }
+  } else {
+    // EMA21 proximity
+    if (current <= ema21 && ema21 - current <= 1.5 * atr) return true;
+    // Fresh swing high rejection
+    if (swingHighs.length > 0) {
+      const lastHigh = swingHighs[swingHighs.length - 1];
+      if (current <= lastHigh && lastHigh - current <= 2 * atr) return true;
+    }
   }
-
-  // Recent swing bounce check (within last 6 candles)
-  const swingHighs = findSwingHighs(candles, 2);
-  const swingLows = findSwingLows(candles, 2);
-
-  if (direction === "BUY" && swingLows.length > 0) {
-    const lastSwingLow = swingLows[swingLows.length - 1];
-    // Price bounced from HL: currently within 2 ATR above last swing low
-    return current >= lastSwingLow && current - lastSwingLow <= 2 * atr;
-  }
-
-  if (direction === "SELL" && swingHighs.length > 0) {
-    const lastSwingHigh = swingHighs[swingHighs.length - 1];
-    // Price rejected from LH: currently within 2 ATR below last swing high
-    return current <= lastSwingHigh && lastSwingHigh - current <= 2 * atr;
-  }
-
   return false;
 }
 
 /**
  * Condition 2 — Confirmation Candle.
- *
- * At least 1 of the last 2 CLOSED candles (indices -2 and -3) must confirm
- * the trend direction. Using 2 candles gives tolerance for minor consolidation.
- *
- *   BUY:  close > open (bullish body)
- *   SELL: close < open (bearish body)
+ * At least 1 of the last 2 CLOSED candles (index −2 and −3) confirms direction.
+ * Using 2 candles gives tolerance for 1-bar consolidation.
  */
 function checkConfirmationCandle(candles: Candle[], direction: TrendDirection): boolean {
   if (candles.length < 3) return false;
-  const c1 = candles[candles.length - 2]; // last closed
-  const c2 = candles[candles.length - 3]; // 2nd-to-last closed
-
+  const c1 = candles[candles.length - 2];
+  const c2 = candles[candles.length - 3];
   const confirms = (c: Candle) =>
     direction === "BUY" ? c.close > c.open : c.close < c.open;
-
   return confirms(c1) || confirms(c2);
 }
 
 /**
  * Condition 3 — Momentum Candle.
- *
- * Checks if any of the last 5 candles has a strong directional body
- * (body ≥ 55% of total range) matching the trend direction.
- * This detects the "impulse" move that drives the trend.
+ * Any of last 5 closed candles has a strong body (≥55% of range) in the trend direction.
  */
 function checkMomentumCandle(candles: Candle[], direction: TrendDirection): boolean {
   if (candles.length < 3) return false;
-  const slice = candles.slice(-6, -1); // last 5 closed candles
-
-  return slice.some((c) => {
+  return candles.slice(-6, -1).some((c) => {
     const body = Math.abs(c.close - c.open);
     const range = c.high - c.low;
     if (range === 0) return false;
     const strongBody = body / range >= 0.55;
-    const correctDir =
-      direction === "BUY" ? c.close > c.open : c.close < c.open;
+    const correctDir = direction === "BUY" ? c.close > c.open : c.close < c.open;
     return strongBody && correctDir;
   });
 }
@@ -126,44 +105,29 @@ function checkMomentumCandle(candles: Candle[], direction: TrendDirection): bool
 /**
  * Condition 4 — Risk Reward ≥ 1.5:1.
  *
- * SL placement:
- *   BUY:  last swing low (capped: min SL distance = 0.5 ATR)
- *   SELL: last swing high (capped: min SL distance = 0.5 ATR)
- *
- * TP placement:
- *   BUY:  nearest swing high ABOVE current price.
- *         If no swing high above (price broke out) → project 2.5 ATR.
- *   SELL: nearest swing low BELOW current price.
- *         If no swing low below (price broke down) → project 2.5 ATR.
- *
- * Require: reward / risk ≥ 1.5
+ * SL = last swing low/high ± 0.3 ATR buffer (capped at min 0.5 ATR distance)
+ * TP = nearest swing level beyond current price, or 2.5 ATR projection
  */
-function checkRiskReward(candles: Candle[], direction: TrendDirection, atr: number): boolean {
+function checkRiskReward(
+  candles: Candle[],
+  direction: TrendDirection,
+  atr: number,
+): boolean {
   const current = candles[candles.length - 1].close;
-  const swingHighs = findSwingHighs(candles, 2);
-  const swingLows = findSwingLows(candles, 2);
+  const swingHighs = findSwingHighs(candles, 2, atr, 0.3);
+  const swingLows = findSwingLows(candles, 2, atr, 0.3);
 
   if (direction === "BUY") {
-    const lastSwingLow =
-      swingLows.length > 0 ? swingLows[swingLows.length - 1] : current - atr;
-    const risk = Math.max(current - lastSwingLow, 0.5 * atr);
-
-    // Find nearest swing high above current price
+    const lastLow = swingLows.length > 0 ? swingLows[swingLows.length - 1] : current - atr;
+    const risk = Math.max(current - lastLow, 0.5 * atr);
     const higherSwing = [...swingHighs].reverse().find((h) => h > current);
-    const target = higherSwing ?? current + 2.5 * atr;
-    const reward = target - current;
-
+    const reward = (higherSwing ?? current + 2.5 * atr) - current;
     return reward > 0 && reward / risk >= 1.5;
   } else {
-    const lastSwingHigh =
-      swingHighs.length > 0 ? swingHighs[swingHighs.length - 1] : current + atr;
-    const risk = Math.max(lastSwingHigh - current, 0.5 * atr);
-
-    // Find nearest swing low below current price
+    const lastHigh = swingHighs.length > 0 ? swingHighs[swingHighs.length - 1] : current + atr;
+    const risk = Math.max(lastHigh - current, 0.5 * atr);
     const lowerSwing = [...swingLows].reverse().find((l) => l < current);
-    const target = lowerSwing ?? current - 2.5 * atr;
-    const reward = current - target;
-
+    const reward = current - (lowerSwing ?? current - 2.5 * atr);
     return reward > 0 && reward / risk >= 1.5;
   }
 }
@@ -174,49 +138,25 @@ function scoreToLevel(score: number): ConfidenceLevel {
   return "Low";
 }
 
-/**
- * Calculates entry confidence from real M15 candles.
- *
- * @param pair         - Pair string (for future use / logging)
- * @param h1Direction  - Trend direction on H1 (primary bias)
- * @param m15Direction - Trend direction on M15
- * @param candles      - M15 OHLCV candles (oldest → newest, ≥ 30 recommended)
- */
+// ─── Public API ───────────────────────────────────────────────────────────────
+
 export function calculateConfidence(
   pair: string,
   h1Direction: TrendDirection,
   m15Direction: TrendDirection,
   candles: Candle[],
 ): ConfidenceResult {
-  const bias = h1Direction; // H1 drives the trade direction
+  const bias = h1Direction;
   const atr = calcATR(candles, 14);
 
   const checklist: ChecklistItem[] = [
-    {
-      label: CONDITIONS[0].label,
-      passed: checkNearHLLH(candles, bias, atr),
-      weight: CONDITIONS[0].weight,
-    },
-    {
-      label: CONDITIONS[1].label,
-      passed: checkConfirmationCandle(candles, bias),
-      weight: CONDITIONS[1].weight,
-    },
-    {
-      label: CONDITIONS[2].label,
-      passed: checkMomentumCandle(candles, bias),
-      weight: CONDITIONS[2].weight,
-    },
-    {
-      label: CONDITIONS[3].label,
-      passed: checkRiskReward(candles, bias, atr),
-      weight: CONDITIONS[3].weight,
-    },
+    { label: "Harga dekat HL/LH",   passed: checkNearHLLH(candles, bias, atr),       weight: 0.35 },
+    { label: "Confirmation Candle", passed: checkConfirmationCandle(candles, bias),   weight: 0.25 },
+    { label: "Momentum Candle",     passed: checkMomentumCandle(candles, bias),       weight: 0.20 },
+    { label: "Risk Reward Bagus",   passed: checkRiskReward(candles, bias, atr),      weight: 0.20 },
   ];
 
   const rawScore = checklist.reduce((acc, item) => acc + (item.passed ? item.weight : 0), 0);
-
-  // +5% alignment bonus when both timeframes agree
   const alignmentBonus = h1Direction === m15Direction ? 0.05 : 0;
   const score = Math.min(100, Math.round((rawScore + alignmentBonus) * 100));
 

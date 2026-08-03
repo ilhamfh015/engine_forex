@@ -13,6 +13,7 @@ import {
 import { analyzeTrendFromCandles, SUPPORTED_PAIRS } from "../services/MarketStructureService.js";
 import { calculateConfidence } from "../services/EntryConfidenceService.js";
 import { generateSummary } from "../services/SummaryService.js";
+import { buildTradeSetup } from "../services/TradeSetupService.js";
 import { getCandles } from "../services/TwelveDataService.js";
 import { db, marketAnalysisTable } from "@workspace/db";
 import { desc, eq } from "drizzle-orm";
@@ -57,7 +58,10 @@ router.get("/analysis/:pair", async (req: Request, res: Response) => {
     // 4. Generate market summary
     const summary = generateSummary(pair, trendH1.direction, trendM15.direction, score, level, checklist);
 
-    // 5. Persist snapshot to database (fire-and-forget, do not block response)
+    // 5. Build trade setup (entry zone, SL, TP1/2/3) from M15 candles + H1 bias
+    const tradeSetup = buildTradeSetup(pair, trendH1.direction, candlesM15);
+
+    // 6. Persist snapshot to database (fire-and-forget, do not block response)
     db.insert(marketAnalysisTable)
       .values({
         pair,
@@ -76,7 +80,7 @@ router.get("/analysis/:pair", async (req: Request, res: Response) => {
         req.log.warn({ err }, "Failed to persist analysis snapshot");
       });
 
-    // 6. Return full analysis
+    // 7. Return full analysis
     res.json({
       pair,
       timestamp: new Date().toISOString(),
@@ -86,6 +90,7 @@ router.get("/analysis/:pair", async (req: Request, res: Response) => {
       confidenceLevel: level,
       checklist,
       summary,
+      tradeSetup,
     });
   } catch (err) {
     req.log.error({ err }, "Error generating analysis");

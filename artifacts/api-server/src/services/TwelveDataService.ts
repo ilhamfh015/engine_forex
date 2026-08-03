@@ -2,13 +2,13 @@
  * TwelveDataService
  *
  * Fetches OHLCV candle data from the Twelve Data REST API.
- * Provides shared utilities: EMA, ATR, swing detection.
+ * Provides shared technical-analysis utilities used by all services.
  *
- * Cache TTLs (stay within free-plan 800 req/day limit):
- *   H1  → 60 minutes  (new H1 candle every hour)
- *   M15 → 15 minutes  (new M15 candle every 15 min)
+ * Cache TTLs (free-plan 800 req/day limit):
+ *   H1  → 60 min   M15 → 15 min
  *
- * In-flight deduplication prevents thundering-herd 429s on cold start.
+ * Rate limiter: max 7 req/min (under the 8 req/min free limit).
+ * In-flight deduplication: concurrent callers for same key share one fetch.
  */
 
 export interface Candle {
@@ -28,6 +28,24 @@ export const PAIR_TO_SYMBOL: Record<string, string> = {
   BTCUSD: "BTC/USD",
 };
 
+/** Pip size per instrument for risk/reward display */
+export const PIP_SIZE: Record<string, number> = {
+  EURUSD: 0.0001,
+  GBPUSD: 0.0001,
+  USDJPY: 0.01,
+  XAUUSD: 0.01,
+  BTCUSD: 1.0,
+};
+
+/** How many decimal places to display prices */
+export const PRICE_DECIMALS: Record<string, number> = {
+  EURUSD: 5,
+  GBPUSD: 5,
+  USDJPY: 3,
+  XAUUSD: 2,
+  BTCUSD: 0,
+};
+
 const INTERVAL_MAP: Record<"H1" | "M15", string> = {
   H1: "1h",
   M15: "15min",
@@ -38,62 +56,42 @@ const CACHE_TTL_MS: Record<"H1" | "M15", number> = {
   M15: 15 * 60 * 1000,
 };
 
-interface CacheEntry {
-  candles: Candle[];
-  expiresAt: number;
-}
-
+interface CacheEntry { candles: Candle[]; expiresAt: number }
 const cache = new Map<string, CacheEntry>();
 const inFlight = new Map<string, Promise<Candle[]>>();
 
-// ─── Rate limiter (sliding window, max 7 req/min to stay under 8/min limit) ──
+// ─── Rate limiter: sliding-window 7 req/min ───────────────────────────────────
 const REQUEST_TIMESTAMPS: number[] = [];
 const MAX_REQUESTS_PER_MINUTE = 7;
 
 async function waitForRateLimit(): Promise<void> {
-  const now = Date.now();
-  const windowStart = now - 60_000;
-
-  // Drop timestamps outside the 60-second window
+  const windowStart = Date.now() - 60_000;
   while (REQUEST_TIMESTAMPS.length > 0 && REQUEST_TIMESTAMPS[0] < windowStart) {
     REQUEST_TIMESTAMPS.shift();
   }
-
   if (REQUEST_TIMESTAMPS.length >= MAX_REQUESTS_PER_MINUTE) {
-    // Wait until the oldest request leaves the window
     const waitMs = REQUEST_TIMESTAMPS[0] + 60_000 - Date.now() + 200;
     if (waitMs > 0) await new Promise((r) => setTimeout(r, waitMs));
-    // Recurse to re-check after waiting
     return waitForRateLimit();
   }
-
   REQUEST_TIMESTAMPS.push(Date.now());
 }
 
-/**
- * Returns OHLCV candles ordered OLDEST → NEWEST.
- * Results cached by TTL; concurrent requests share one HTTP fetch.
- */
+// ─── Public API ───────────────────────────────────────────────────────────────
+
 export async function getCandles(
   pair: string,
   timeframe: "H1" | "M15",
   count = 50,
 ): Promise<Candle[]> {
-  const cacheKey = `${pair}-${timeframe}`;
-
-  const cached = cache.get(cacheKey);
+  const key = `${pair}-${timeframe}`;
+  const cached = cache.get(key);
   if (cached && Date.now() < cached.expiresAt) return cached.candles;
-
-  const existing = inFlight.get(cacheKey);
+  const existing = inFlight.get(key);
   if (existing) return existing;
-
-  const fetchPromise = fetchFromApi(pair, timeframe, count, cacheKey);
-  inFlight.set(cacheKey, fetchPromise);
-  try {
-    return await fetchPromise;
-  } finally {
-    inFlight.delete(cacheKey);
-  }
+  const p = fetchFromApi(pair, timeframe, count, key);
+  inFlight.set(key, p);
+  try { return await p; } finally { inFlight.delete(key); }
 }
 
 async function fetchFromApi(
@@ -104,7 +102,6 @@ async function fetchFromApi(
 ): Promise<Candle[]> {
   const symbol = PAIR_TO_SYMBOL[pair];
   if (!symbol) throw new Error(`Unsupported pair: ${pair}`);
-
   const apiKey = process.env.TWELVE_DATA_API_KEY;
   if (!apiKey) throw new Error("TWELVE_DATA_API_KEY is not set");
 
@@ -115,62 +112,40 @@ async function fetchFromApi(
     `&outputsize=${count}` +
     `&apikey=${apiKey}`;
 
-  // Respect rate limit before each outbound request
   await waitForRateLimit();
+  let res = await fetch(url);
 
-  let response = await fetch(url);
-
-  // Retry once on 429 — wait for the rate limiter window to clear
-  if (response.status === 429) {
-    await new Promise((r) => setTimeout(r, 12_000)); // 12 s cooldown
+  if (res.status === 429) {
+    await new Promise((r) => setTimeout(r, 12_000));
     await waitForRateLimit();
-    response = await fetch(url);
+    res = await fetch(url);
   }
+  if (!res.ok) throw new Error(`Twelve Data HTTP ${res.status}: ${res.statusText}`);
 
-  if (!response.ok) {
-    throw new Error(`Twelve Data HTTP ${response.status}: ${response.statusText}`);
-  }
-
-  const data = (await response.json()) as {
-    status?: string;
-    message?: string;
-    values?: Array<{
-      datetime: string;
-      open: string;
-      high: string;
-      low: string;
-      close: string;
-      volume?: string;
-    }>;
+  const data = (await res.json()) as {
+    status?: string; message?: string;
+    values?: Array<{ datetime: string; open: string; high: string; low: string; close: string; volume?: string }>;
   };
-
   if (data.status === "error" || !data.values || data.values.length === 0) {
-    throw new Error(`Twelve Data error: ${data.message ?? "No candle data returned"}`);
+    throw new Error(`Twelve Data error: ${data.message ?? "No data"}`);
   }
 
-  // Twelve Data: newest-first → reverse to oldest-first
-  const candles: Candle[] = data.values
-    .slice()
-    .reverse()
-    .map((v) => ({
-      datetime: v.datetime,
-      open: parseFloat(v.open),
-      high: parseFloat(v.high),
-      low: parseFloat(v.low),
-      close: parseFloat(v.close),
-      volume: parseFloat(v.volume ?? "0"),
-    }));
+  const candles: Candle[] = data.values.slice().reverse().map((v) => ({
+    datetime: v.datetime,
+    open: parseFloat(v.open),
+    high: parseFloat(v.high),
+    low: parseFloat(v.low),
+    close: parseFloat(v.close),
+    volume: parseFloat(v.volume ?? "0"),
+  }));
 
   cache.set(cacheKey, { candles, expiresAt: Date.now() + CACHE_TTL_MS[timeframe] });
   return candles;
 }
 
-// ─── Technical Indicators ────────────────────────────────────────────────────
+// ─── Technical Indicators ─────────────────────────────────────────────────────
 
-/**
- * Exponential Moving Average over closing prices.
- * Returns an array of the same length as `candles` (oldest → newest).
- */
+/** EMA over closing prices. Returns array length == candles.length, oldest→newest. */
 export function calcEMA(candles: Candle[], period: number): number[] {
   const k = 2 / (period + 1);
   const result: number[] = new Array(candles.length);
@@ -182,27 +157,68 @@ export function calcEMA(candles: Candle[], period: number): number[] {
 }
 
 /**
- * Average True Range over the last `period` candles.
+ * Wilder's RSI (period 14 default).
+ * Returns value 0-100. Requires at least period+1 candles; returns 50 otherwise.
  */
-export function calcATR(candles: Candle[], period = 14): number {
+export function calcRSI(candles: Candle[], period = 14): number {
+  if (candles.length < period + 1) return 50;
   const slice = candles.slice(-(period + 1));
-  if (slice.length < 2) return 0;
-  let sum = 0;
+  let avgGain = 0;
+  let avgLoss = 0;
+
+  // First average (simple)
+  for (let i = 1; i <= period; i++) {
+    const change = slice[i].close - slice[i - 1].close;
+    if (change > 0) avgGain += change / period;
+    else avgLoss += -change / period;
+  }
+  if (avgLoss === 0) return 100;
+  let rs = avgGain / avgLoss;
+
+  // Wilder smoothing for remaining bars (if candles > period+1)
+  const extra = candles.slice(-(candles.length - (candles.length - period)));
+  for (let i = period + 1; i < candles.length; i++) {
+    const change = candles[i].close - candles[i - 1].close;
+    const gain = change > 0 ? change : 0;
+    const loss = change < 0 ? -change : 0;
+    avgGain = (avgGain * (period - 1) + gain) / period;
+    avgLoss = (avgLoss * (period - 1) + loss) / period;
+    rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+  }
+
+  return parseFloat((100 - 100 / (1 + rs)).toFixed(2));
+}
+
+/** Average True Range (Wilder's, period 14 default). */
+export function calcATR(candles: Candle[], period = 14): number {
+  if (candles.length < 2) return 0;
+  const slice = candles.slice(-(period + 1));
+
+  // First TR (simple)
+  let atr = slice[1].high - slice[1].low; // approximate first
   for (let i = 1; i < slice.length; i++) {
-    sum += Math.max(
+    const tr = Math.max(
       slice[i].high - slice[i].low,
       Math.abs(slice[i].high - slice[i - 1].close),
       Math.abs(slice[i].low - slice[i - 1].close),
     );
+    // Wilder smoothing
+    atr = (atr * (period - 1) + tr) / period;
   }
-  return sum / (slice.length - 1);
+  return atr;
 }
 
 /**
- * Pivot swing highs: candle[i].high is the highest among `lookback` neighbors.
- * Returns price values oldest → newest.
+ * Pivot swing highs with minimum-size filter.
+ * A pivot is valid only if its high exceeds all neighbors within `lookback`
+ * AND the swing height >= minSizeMult * ATR (removes micro noise).
  */
-export function findSwingHighs(candles: Candle[], lookback = 2): number[] {
+export function findSwingHighs(
+  candles: Candle[],
+  lookback = 2,
+  atr = 0,
+  minSizeMult = 0.3,
+): number[] {
   const highs: number[] = [];
   for (let i = lookback; i < candles.length - lookback; i++) {
     let isPivot = true;
@@ -212,16 +228,28 @@ export function findSwingHighs(candles: Candle[], lookback = 2): number[] {
         break;
       }
     }
-    if (isPivot) highs.push(candles[i].high);
+    if (!isPivot) continue;
+    // Size filter: swing must be at least minSizeMult * ATR above its lowest neighbour
+    if (atr > 0) {
+      const lowestNeighbour = Math.min(
+        ...candles.slice(i - lookback, i + lookback + 1).map((c) => c.high),
+      );
+      if (candles[i].high - lowestNeighbour < minSizeMult * atr) continue;
+    }
+    highs.push(candles[i].high);
   }
   return highs;
 }
 
 /**
- * Pivot swing lows: candle[i].low is the lowest among `lookback` neighbors.
- * Returns price values oldest → newest.
+ * Pivot swing lows with minimum-size filter.
  */
-export function findSwingLows(candles: Candle[], lookback = 2): number[] {
+export function findSwingLows(
+  candles: Candle[],
+  lookback = 2,
+  atr = 0,
+  minSizeMult = 0.3,
+): number[] {
   const lows: number[] = [];
   for (let i = lookback; i < candles.length - lookback; i++) {
     let isPivot = true;
@@ -231,7 +259,14 @@ export function findSwingLows(candles: Candle[], lookback = 2): number[] {
         break;
       }
     }
-    if (isPivot) lows.push(candles[i].low);
+    if (!isPivot) continue;
+    if (atr > 0) {
+      const highestNeighbour = Math.max(
+        ...candles.slice(i - lookback, i + lookback + 1).map((c) => c.low),
+      );
+      if (highestNeighbour - candles[i].low < minSizeMult * atr) continue;
+    }
+    lows.push(candles[i].low);
   }
   return lows;
 }

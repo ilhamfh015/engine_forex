@@ -135,10 +135,81 @@ components:
         explanation:
           type: string
           description: Short description of current market structure
+        strength:
+          type: string
+          enum: [strong, moderate, swing, weak, ranging]
+          description: Signal strength based on triple-factor confirmation
+        rsi:
+          type: number
+          description: RSI(14) value at time of analysis
+        ema8:
+          type: number
+          description: EMA(8) value
+        ema21:
+          type: number
+          description: EMA(21) value
+        currentPrice:
+          type: number
+          description: Last close price used for analysis
       required:
         - direction
         - structure
         - explanation
+        - strength
+        - rsi
+        - ema8
+        - ema21
+        - currentPrice
+
+    TradeSetup:
+      type: object
+      description: Optimal trade setup levels — entry zone, SL, and TP targets
+      properties:
+        direction:
+          type: string
+          enum: [BUY, SELL]
+        entryZoneMin:
+          type: number
+          description: Lower bound of the ideal entry zone
+        entryZoneMax:
+          type: number
+          description: Upper bound of the ideal entry zone
+        entryZoneLabel:
+          type: string
+          description: Status label — e.g. IN ZONE, TUNGGU PULLBACK
+        stopLoss:
+          type: number
+          description: Stop-loss price level
+        tp1:
+          type: number
+          description: Take-profit 1 (1:1 RR)
+        tp2:
+          type: number
+          description: Take-profit 2 (1:2 RR)
+        tp3:
+          type: number
+          description: Take-profit 3 (1:3 RR or next key swing)
+        riskRewardRatio:
+          type: number
+          description: Reward/Risk ratio to TP2 from current price
+        riskPoints:
+          type: number
+          description: Risk in price points (entry zone mid to SL)
+        pipSize:
+          type: number
+          description: Pip/point size for this instrument
+      required:
+        - direction
+        - entryZoneMin
+        - entryZoneMax
+        - entryZoneLabel
+        - stopLoss
+        - tp1
+        - tp2
+        - tp3
+        - riskRewardRatio
+        - riskPoints
+        - pipSize
 
     ChecklistItem:
       type: object
@@ -207,6 +278,8 @@ components:
             $ref: "#/components/schemas/ChecklistItem"
         summary:
           $ref: "#/components/schemas/MarketSummary"
+        tradeSetup:
+          $ref: "#/components/schemas/TradeSetup"
       required:
         - pair
         - timestamp
@@ -216,6 +289,7 @@ components:
         - confidenceLevel
         - checklist
         - summary
+        - tradeSetup
 
     AnalysisSnapshot:
       type: object
