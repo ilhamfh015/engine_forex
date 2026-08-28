@@ -82,9 +82,9 @@ async function waitForRateLimit(): Promise<void> {
 export async function getCandles(
   pair: string,
   timeframe: "H1" | "M15",
-  count = 50,
+  count = 100,
 ): Promise<Candle[]> {
-  const key = `${pair}-${timeframe}`;
+  const key = `${pair}-${timeframe}-${count}`;
   const cached = cache.get(key);
   if (cached && Date.now() < cached.expiresAt) return cached.candles;
   const existing = inFlight.get(key);
@@ -147,6 +147,7 @@ async function fetchFromApi(
 
 /** EMA over closing prices. Returns array length == candles.length, oldest→newest. */
 export function calcEMA(candles: Candle[], period: number): number[] {
+  if (candles.length === 0) return [];
   const k = 2 / (period + 1);
   const result: number[] = new Array(candles.length);
   result[0] = candles[0].close;
@@ -158,54 +159,104 @@ export function calcEMA(candles: Candle[], period: number): number[] {
 
 /**
  * Wilder's RSI (period 14 default).
- * Returns value 0-100. Requires at least period+1 candles; returns 50 otherwise.
+ * Returns the last RSI value, using all available candles for a stable seed.
  */
 export function calcRSI(candles: Candle[], period = 14): number {
   if (candles.length < period + 1) return 50;
-  const slice = candles.slice(-(period + 1));
   let avgGain = 0;
   let avgLoss = 0;
 
-  // First average (simple)
+  // Seed Wilder's smoothed averages from the first `period` changes.
   for (let i = 1; i <= period; i++) {
-    const change = slice[i].close - slice[i - 1].close;
-    if (change > 0) avgGain += change / period;
-    else avgLoss += -change / period;
+    const change = candles[i].close - candles[i - 1].close;
+    if (change > 0) avgGain += change;
+    else avgLoss += -change;
   }
-  if (avgLoss === 0) return 100;
-  let rs = avgGain / avgLoss;
+  avgGain /= period;
+  avgLoss /= period;
 
-  // Wilder smoothing for remaining bars (if candles > period+1)
-  const extra = candles.slice(-(candles.length - (candles.length - period)));
   for (let i = period + 1; i < candles.length; i++) {
     const change = candles[i].close - candles[i - 1].close;
     const gain = change > 0 ? change : 0;
     const loss = change < 0 ? -change : 0;
     avgGain = (avgGain * (period - 1) + gain) / period;
     avgLoss = (avgLoss * (period - 1) + loss) / period;
-    rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
   }
 
+  if (avgLoss === 0) return avgGain === 0 ? 50 : 100;
+  const rs = avgGain / avgLoss;
   return parseFloat((100 - 100 / (1 + rs)).toFixed(2));
 }
 
 /** Average True Range (Wilder's, period 14 default). */
 export function calcATR(candles: Candle[], period = 14): number {
   if (candles.length < 2) return 0;
-  const slice = candles.slice(-(period + 1));
-
-  // First TR (simple)
-  let atr = slice[1].high - slice[1].low; // approximate first
-  for (let i = 1; i < slice.length; i++) {
-    const tr = Math.max(
-      slice[i].high - slice[i].low,
-      Math.abs(slice[i].high - slice[i - 1].close),
-      Math.abs(slice[i].low - slice[i - 1].close),
-    );
-    // Wilder smoothing
-    atr = (atr * (period - 1) + tr) / period;
+  const trueRanges: number[] = [];
+  for (let i = 1; i < candles.length; i++) {
+    trueRanges.push(Math.max(
+      candles[i].high - candles[i].low,
+      Math.abs(candles[i].high - candles[i - 1].close),
+      Math.abs(candles[i].low - candles[i - 1].close),
+    ));
+  }
+  const seedLength = Math.min(period, trueRanges.length);
+  let atr = trueRanges.slice(0, seedLength).reduce((sum, value) => sum + value, 0) / seedLength;
+  for (let i = seedLength; i < trueRanges.length; i++) {
+    atr = (atr * (period - 1) + trueRanges[i]) / period;
   }
   return atr;
+}
+
+/**
+ * Wilder's ADX(14). ADX measures trend strength, not direction.
+ * Values below 20 usually indicate range/noise; 25+ is a healthier trend.
+ */
+export function calcADX(candles: Candle[], period = 14): number {
+  if (candles.length < period * 2 + 1) return 0;
+
+  const trs: number[] = [];
+  const plusDM: number[] = [];
+  const minusDM: number[] = [];
+
+  for (let i = 1; i < candles.length; i++) {
+    const upMove = candles[i].high - candles[i - 1].high;
+    const downMove = candles[i - 1].low - candles[i].low;
+    plusDM.push(upMove > downMove && upMove > 0 ? upMove : 0);
+    minusDM.push(downMove > upMove && downMove > 0 ? downMove : 0);
+    trs.push(Math.max(
+      candles[i].high - candles[i].low,
+      Math.abs(candles[i].high - candles[i - 1].close),
+      Math.abs(candles[i].low - candles[i - 1].close),
+    ));
+  }
+
+  let trSmoothed = trs.slice(0, period).reduce((a, b) => a + b, 0);
+  let plusSmoothed = plusDM.slice(0, period).reduce((a, b) => a + b, 0);
+  let minusSmoothed = minusDM.slice(0, period).reduce((a, b) => a + b, 0);
+  const dx: number[] = [];
+
+  for (let i = period; i < trs.length; i++) {
+    trSmoothed = trSmoothed - trSmoothed / period + trs[i];
+    plusSmoothed = plusSmoothed - plusSmoothed / period + plusDM[i];
+    minusSmoothed = minusSmoothed - minusSmoothed / period + minusDM[i];
+    const plusDI = trSmoothed === 0 ? 0 : (100 * plusSmoothed) / trSmoothed;
+    const minusDI = trSmoothed === 0 ? 0 : (100 * minusSmoothed) / trSmoothed;
+    const denominator = plusDI + minusDI;
+    dx.push(denominator === 0 ? 0 : (100 * Math.abs(plusDI - minusDI)) / denominator);
+  }
+
+  if (dx.length === 0) return 0;
+  const seedLength = Math.min(period, dx.length);
+  let adx = dx.slice(0, seedLength).reduce((a, b) => a + b, 0) / seedLength;
+  for (let i = seedLength; i < dx.length; i++) {
+    adx = (adx * (period - 1) + dx[i]) / period;
+  }
+  return parseFloat(adx.toFixed(2));
+}
+
+/** The newest Twelve Data candle can still be forming; exclude it for signals. */
+export function getClosedCandles(candles: Candle[]): Candle[] {
+  return candles.length > 1 ? candles.slice(0, -1) : candles;
 }
 
 /**

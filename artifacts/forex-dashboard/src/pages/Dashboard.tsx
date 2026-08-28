@@ -7,6 +7,7 @@ import { ConfidenceCard } from '@/components/ConfidenceCard';
 import { SummaryCard } from '@/components/SummaryCard';
 import { PairsOverview } from '@/components/PairsOverview';
 import { TradingViewWidget } from '@/components/TradingViewWidget';
+import { TradeSetupCard } from '@/components/TradeSetupCard';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import {
   useGetAnalysis,
@@ -33,7 +34,11 @@ export default function Dashboard() {
   const { data: allPairs, isLoading: isLoadingPairs } = useGetAllPairsSummary({
     query: {
       queryKey: getGetAllPairsSummaryQueryKey(),
-      refetchInterval: 60000,
+      // The pair overview uses the same 15m/60m Twelve Data cache. Do not
+      // refetch it every minute or it creates an unnecessary API burst.
+      enabled: !!analysis,
+      staleTime: 15 * 60 * 1000,
+      refetchInterval: 15 * 60 * 1000,
     }
   });
 
@@ -94,6 +99,8 @@ export default function Dashboard() {
           />
           <SummaryCard summary={analysis.summary} index={3} />
         </div>
+
+        <TradeSetupCard setup={analysis.tradeSetup} index={4} />
 
         {/* All Pairs Overview */}
         {allPairs && allPairs.length > 0 && (

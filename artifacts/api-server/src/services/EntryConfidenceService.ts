@@ -13,7 +13,7 @@
 
 import type { Candle } from "./TwelveDataService.js";
 import { calcATR, calcEMA, findSwingHighs, findSwingLows } from "./TwelveDataService.js";
-import type { TrendDirection } from "./MarketStructureService.js";
+import type { MarketState, TrendDirection } from "./MarketStructureService.js";
 
 export interface ChecklistItem {
   label: string;
@@ -27,6 +27,9 @@ export interface ConfidenceResult {
   score: number;
   level: ConfidenceLevel;
   checklist: ChecklistItem[];
+  timeframeAligned: boolean;
+  tradeAllowed: boolean;
+  note: string;
 }
 
 // ─── Individual condition checks ──────────────────────────────────────────────
@@ -145,6 +148,8 @@ export function calculateConfidence(
   h1Direction: TrendDirection,
   m15Direction: TrendDirection,
   candles: Candle[],
+  h1State: MarketState,
+  m15State: MarketState,
 ): ConfidenceResult {
   const bias = h1Direction;
   const atr = calcATR(candles, 14);
@@ -157,8 +162,28 @@ export function calculateConfidence(
   ];
 
   const rawScore = checklist.reduce((acc, item) => acc + (item.passed ? item.weight : 0), 0);
-  const alignmentBonus = h1Direction === m15Direction ? 0.05 : 0;
-  const score = Math.min(100, Math.round((rawScore + alignmentBonus) * 100));
+  const timeframeAligned =
+    h1State === "TRENDING" &&
+    m15State === "TRENDING" &&
+    h1Direction === m15Direction;
 
-  return { score, level: scoreToLevel(score), checklist };
+  // A technically good M15 setup is not actionable when the higher
+  // timeframe disagrees or either timeframe is ranging/transitioning.
+  const unalignedScore = Math.round(rawScore * 100);
+  const score = timeframeAligned
+    ? Math.min(100, unalignedScore + 5)
+    : Math.min(40, Math.round(unalignedScore * 0.6));
+  const level = scoreToLevel(score);
+  const tradeAllowed = timeframeAligned && score >= 60;
+
+  return {
+    score,
+    level,
+    checklist,
+    timeframeAligned,
+    tradeAllowed,
+    note: tradeAllowed
+      ? "Konfluensi H1 dan M15 valid. Entry tetap menunggu harga berada di zona dan candle konfirmasi."
+      : "Belum ada konfluensi valid untuk entry. Jangan memaksakan posisi.",
+  };
 }

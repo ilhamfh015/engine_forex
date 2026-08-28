@@ -6,6 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { TrendDataDirection } from './trendDataDirection';
+import type { TrendDataMarketState } from './trendDataMarketState';
+import type { TrendDataStrength } from './trendDataStrength';
 
 /**
  * Trend direction with market structure explanation
@@ -17,4 +19,20 @@ export interface TrendData {
   structure: string;
   /** Short description of current market structure */
   explanation: string;
+  /** Signal strength based on triple-factor confirmation */
+  strength: TrendDataStrength;
+  /** RSI(14) value at time of analysis */
+  rsi: number;
+  /** ADX(14) trend-strength value */
+  adx: number;
+  /** EMA(20) value */
+  emaFast: number;
+  /** EMA(50) value */
+  emaSlow: number;
+  /** Last close price used for analysis */
+  currentPrice: number;
+  /** Whether the timeframe is trending, transitioning, or ranging */
+  marketState: TrendDataMarketState;
+  /** Timestamp of the last closed candle used */
+  candleTime: string;
 }

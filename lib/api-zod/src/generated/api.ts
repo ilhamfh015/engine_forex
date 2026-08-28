@@ -31,12 +31,28 @@ export const GetAnalysisResponse = zod.object({
   "trendH1": zod.object({
   "direction": zod.enum(['BUY', 'SELL']).describe('Trend direction'),
   "structure": zod.string().describe('Market structure label (e.g. HH-HL or LH-LL)'),
-  "explanation": zod.string().describe('Short description of current market structure')
+  "explanation": zod.string().describe('Short description of current market structure'),
+  "strength": zod.enum(['strong', 'moderate', 'swing', 'weak', 'ranging']).describe('Signal strength based on triple-factor confirmation'),
+  "rsi": zod.number().describe('RSI(14) value at time of analysis'),
+  "adx": zod.number().describe('ADX(14) trend-strength value'),
+  "emaFast": zod.number().describe('EMA(20) value'),
+  "emaSlow": zod.number().describe('EMA(50) value'),
+  "currentPrice": zod.number().describe('Last close price used for analysis'),
+  "marketState": zod.enum(['TRENDING', 'TRANSITION', 'RANGING']).describe('Whether the timeframe is trending, transitioning, or ranging'),
+  "candleTime": zod.string().describe('Timestamp of the last closed candle used')
 }).describe('Trend direction with market structure explanation'),
   "trendM15": zod.object({
   "direction": zod.enum(['BUY', 'SELL']).describe('Trend direction'),
   "structure": zod.string().describe('Market structure label (e.g. HH-HL or LH-LL)'),
-  "explanation": zod.string().describe('Short description of current market structure')
+  "explanation": zod.string().describe('Short description of current market structure'),
+  "strength": zod.enum(['strong', 'moderate', 'swing', 'weak', 'ranging']).describe('Signal strength based on triple-factor confirmation'),
+  "rsi": zod.number().describe('RSI(14) value at time of analysis'),
+  "adx": zod.number().describe('ADX(14) trend-strength value'),
+  "emaFast": zod.number().describe('EMA(20) value'),
+  "emaSlow": zod.number().describe('EMA(50) value'),
+  "currentPrice": zod.number().describe('Last close price used for analysis'),
+  "marketState": zod.enum(['TRENDING', 'TRANSITION', 'RANGING']).describe('Whether the timeframe is trending, transitioning, or ranging'),
+  "candleTime": zod.string().describe('Timestamp of the last closed candle used')
 }).describe('Trend direction with market structure explanation'),
   "confidence": zod.number().describe('Overall entry confidence 0-100'),
   "confidenceLevel": zod.enum(['High', 'Medium', 'Low']),
@@ -50,7 +66,27 @@ export const GetAnalysisResponse = zod.object({
   "confidence": zod.number().describe('Confidence percentage 0-100'),
   "confidenceLevel": zod.enum(['High', 'Medium', 'Low']),
   "reason": zod.string().describe('Multi-line narrative explaining the bias')
-}).describe('Overall trading bias summary with reasoning')
+}).describe('Overall trading bias summary with reasoning'),
+  "timeframeAligned": zod.boolean().describe('True only when H1 and M15 are both trending in the same direction'),
+  "tradeAllowed": zod.boolean().describe('False when conditions are not safe for a directional entry'),
+  "note": zod.string().describe('Risk-aware explanation of the confidence result'),
+  "tradeSetup": zod.object({
+  "direction": zod.enum(['BUY', 'SELL']),
+  "status": zod.enum(['READY', 'WAIT', 'NO_TRADE']),
+  "statusReason": zod.string().describe('Why the setup is ready or why the trader should wait'),
+  "currentPrice": zod.number().describe('Last closed candle price'),
+  "entryZoneMin": zod.number().describe('Lower bound of the ideal entry zone'),
+  "entryZoneMax": zod.number().describe('Upper bound of the ideal entry zone'),
+  "entryPrice": zod.number().describe('Reference entry at the zone midpoint'),
+  "entryZoneLabel": zod.string().describe('Status label — e.g. IN ZONE, TUNGGU PULLBACK'),
+  "stopLoss": zod.number().describe('Stop-loss price level'),
+  "tp1": zod.number().describe('Take-profit 1 (1:1 RR)'),
+  "tp2": zod.number().describe('Take-profit 2 (1:2 RR)'),
+  "tp3": zod.number().describe('Take-profit 3 (1:3 RR or next key swing)'),
+  "riskRewardRatio": zod.number().describe('Reward\/Risk ratio to TP2 from current price'),
+  "riskPoints": zod.number().describe('Risk in price points (entry zone mid to SL)'),
+  "pipSize": zod.number().describe('Pip\/point size for this instrument')
+}).describe('Optimal trade setup levels — entry zone, SL, and TP targets')
 }).describe('Full market analysis response for a pair')
 
 

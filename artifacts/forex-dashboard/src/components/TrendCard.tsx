@@ -14,6 +14,11 @@ export function TrendCard({ timeframe, trend, index }: TrendCardProps) {
   const borderColor = isBuy ? 'border-primary/30' : 'border-destructive/30';
   const textColor = isBuy ? 'text-primary' : 'text-destructive';
   const glowClass = isBuy ? 'pulse-glow-green' : 'pulse-glow-red';
+  const stateColor = trend.marketState === 'TRENDING'
+    ? textColor
+    : trend.marketState === 'TRANSITION'
+      ? 'text-yellow-500'
+      : 'text-muted-foreground';
 
   return (
     <motion.div
@@ -43,6 +48,16 @@ export function TrendCard({ timeframe, trend, index }: TrendCardProps) {
               {trend.structure}
             </span>
           </div>
+        </div>
+        <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+          <span className={`rounded-full border px-2 py-1 font-semibold ${borderColor} ${stateColor}`}>
+            {trend.marketState}
+          </span>
+          <span className="rounded-full border border-card-border px-2 py-1 text-muted-foreground">
+            {trend.strength}
+          </span>
+          <span className="text-muted-foreground">RSI {trend.rsi.toFixed(1)}</span>
+          <span className="text-muted-foreground">ADX {trend.adx.toFixed(1)}</span>
         </div>
         <p className="text-sm text-muted-foreground leading-relaxed" data-testid={`text-explanation-${timeframe}`}>
           {trend.explanation}

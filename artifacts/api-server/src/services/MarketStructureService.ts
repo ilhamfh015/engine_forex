@@ -1,158 +1,210 @@
 /**
  * MarketStructureService
  *
- * Triple-confirmation trend detection:
- *   Factor 1 — EMA(8) vs EMA(21) position + 5-bar slope (weight 40%)
- *   Factor 2 — RSI(14) momentum filter  (weight 30%)
- *   Factor 3 — Pivot swing structure HH-HL / LH-LL (weight 30%)
+ * Conservative, closed-candle trend detection.
  *
- * Score  +3 → strong BUY     −3 → strong SELL
- *        +2 → moderate BUY   −2 → moderate SELL
- *        +1 → swing BUY      −1 → swing SELL
- *         0 → ranging / tie-break by EMA
+ * The detector never treats one indicator as truth. It combines:
+ *   1. Confirmed pivot structure (HH-HL / LH-LL)       — primary evidence
+ *   2. EMA 20/50 position and slope                    — trend filter
+ *   3. RSI(14)                                          — momentum filter
+ *   4. ADX(14)                                          — trend-strength filter
+ *
+ * If the evidence conflicts, the response explicitly says TRANSITION or
+ * RANGING so the UI can tell the trader not to force an entry.
  */
 
-import { calcEMA, calcRSI, calcATR, findSwingHighs, findSwingLows } from "./TwelveDataService.js";
+import {
+  calcADX,
+  calcATR,
+  calcEMA,
+  calcRSI,
+  findSwingHighs,
+  findSwingLows,
+} from "./TwelveDataService.js";
 import type { Candle } from "./TwelveDataService.js";
 
 export type TrendDirection = "BUY" | "SELL";
+export type MarketState = "TRENDING" | "TRANSITION" | "RANGING";
 export type SignalStrength = "strong" | "moderate" | "swing" | "weak" | "ranging";
 
 export interface TrendData {
   direction: TrendDirection;
-  structure: string;
+  structure: "HH-HL" | "LH-LL" | "RANGE";
   explanation: string;
   strength: SignalStrength;
+  marketState: MarketState;
   rsi: number;
-  ema8: number;
-  ema21: number;
+  adx: number;
+  emaFast: number;
+  emaSlow: number;
   currentPrice: number;
+  candleTime: string;
 }
 
 export const SUPPORTED_PAIRS = ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "BTCUSD"] as const;
 export type SupportedPair = (typeof SUPPORTED_PAIRS)[number];
 
+const MIN_CANDLES = 55;
+
 /**
- * Main entry point — call with 50+ candles for best accuracy.
- * Candles must be ordered OLDEST → NEWEST.
+ * Analyze only confirmed candles, ordered oldest → newest.
+ *
+ * A full structure requires two confirmed swing highs and two confirmed swing
+ * lows. A pivot uses two candles on each side, so the newest 2 candles cannot
+ * be used as pivots until they are confirmed.
  */
 export function analyzeTrendFromCandles(candles: Candle[]): TrendData {
-  const n = candles.length;
-  const last = candles[n - 1];
-  const atr = calcATR(candles, 14);
-
-  // ── Factor 1: EMA trend (+1 bull / −1 bear / 0 neutral) ─────────────────
-  const ema8arr = calcEMA(candles, 8);
-  const ema21arr = calcEMA(candles, 21);
-  const ema8 = ema8arr[n - 1];
-  const ema21 = ema21arr[n - 1];
-
-  // 5-bar slope to avoid 1-bar noise
-  const slopeLookback = Math.min(5, n - 1);
-  const ema8Slope = (ema8arr[n - 1] - ema8arr[n - 1 - slopeLookback]) / slopeLookback;
-  const ema21Slope = (ema21arr[n - 1] - ema21arr[n - 1 - slopeLookback]) / slopeLookback;
-
-  let emaScore = 0;
-  if (ema8 > ema21 && last.close > ema21) {
-    // Strong bull: both EMAs rising or EMA8 pulling away
-    emaScore = ema8Slope > 0 ? 1 : (ema8 > ema21 ? 1 : 0);
-  } else if (ema8 < ema21 && last.close < ema21) {
-    emaScore = ema8Slope < 0 ? -1 : (ema8 < ema21 ? -1 : 0);
+  if (candles.length === 0) {
+    throw new Error("Cannot analyze an empty candle series");
   }
-  // Near-cross zone (within 0.05 ATR): neutral
-  if (Math.abs(ema8 - ema21) < 0.05 * atr) emaScore = 0;
 
-  // ── Factor 2: RSI momentum (+1 bull / −1 bear / 0 neutral) ──────────────
-  const rsi = calcRSI(candles, 14);
-  let rsiScore = 0;
-  if (rsi > 55) rsiScore = 1;
-  else if (rsi < 45) rsiScore = -1;
+  const usable = candles.length > MIN_CANDLES
+    ? candles.slice(-Math.max(MIN_CANDLES, candles.length))
+    : candles;
+  const n = usable.length;
+  const last = usable[n - 1];
+  const atr = calcATR(usable, 14);
+  const emaFastSeries = calcEMA(usable, 20);
+  const emaSlowSeries = calcEMA(usable, 50);
+  const emaFast = emaFastSeries[n - 1];
+  const emaSlow = emaSlowSeries[n - 1];
+  const slopeIndex = Math.max(0, n - 6);
+  const fastSlope = emaFast - emaFastSeries[slopeIndex];
+  const slowSlope = emaSlow - emaSlowSeries[slopeIndex];
+  const rsi = calcRSI(usable, 14);
+  const adx = calcADX(usable, 14);
 
-  // ── Factor 3: Swing structure (+1 HH-HL / −1 LH-LL / 0 mixed) ──────────
-  const swingHighs = findSwingHighs(candles, 2, atr, 0.3);
-  const swingLows = findSwingLows(candles, 2, atr, 0.3);
+  const swingHighs = findSwingHighs(usable, 2, atr, 0.25);
+  const swingLows = findSwingLows(usable, 2, atr, 0.25);
 
-  let swingScore = 0;
-  const hasHigherHighs =
+  const hhhl =
     swingHighs.length >= 2 &&
-    swingHighs[swingHighs.length - 1] > swingHighs[swingHighs.length - 2];
-  const hasHigherLows =
     swingLows.length >= 2 &&
-    swingLows[swingLows.length - 1] > swingLows[swingLows.length - 2];
-  const hasLowerHighs =
+    swingHighs.at(-1)! > swingHighs.at(-2)! &&
+    swingLows.at(-1)! > swingLows.at(-2)!;
+  const lhll =
     swingHighs.length >= 2 &&
-    swingHighs[swingHighs.length - 1] < swingHighs[swingHighs.length - 2];
-  const hasLowerLows =
     swingLows.length >= 2 &&
-    swingLows[swingLows.length - 1] < swingLows[swingLows.length - 2];
+    swingHighs.at(-1)! < swingHighs.at(-2)! &&
+    swingLows.at(-1)! < swingLows.at(-2)!;
 
-  if (hasHigherHighs && hasHigherLows) swingScore = 1;
-  else if (hasLowerHighs && hasLowerLows) swingScore = -1;
+  const structureDirection: TrendDirection | null = hhhl ? "BUY" : lhll ? "SELL" : null;
+  const emaDirection: TrendDirection | null =
+    emaFast > emaSlow && last.close > emaSlow && fastSlope > 0 && slowSlope >= 0
+      ? "BUY"
+      : emaFast < emaSlow && last.close < emaSlow && fastSlope < 0 && slowSlope <= 0
+        ? "SELL"
+        : null;
+  const momentumDirection: TrendDirection | null =
+    rsi >= 52 ? "BUY" : rsi <= 48 ? "SELL" : null;
 
-  // ── Combined score ───────────────────────────────────────────────────────
-  const totalScore = emaScore + rsiScore + swingScore; // range: −3 to +3
+  const structureScore = structureDirection === "BUY" ? 2 : structureDirection === "SELL" ? -2 : 0;
+  const emaScore = emaDirection === "BUY" ? 2 : emaDirection === "SELL" ? -2 : 0;
+  const momentumScore = momentumDirection === "BUY" ? 1 : momentumDirection === "SELL" ? -1 : 0;
+  const score = structureScore + emaScore + momentumScore;
 
   let direction: TrendDirection;
-  let strength: SignalStrength;
-
-  if (totalScore >= 2) {
-    direction = "BUY"; strength = totalScore === 3 ? "strong" : "moderate";
-  } else if (totalScore <= -2) {
-    direction = "SELL"; strength = totalScore === -3 ? "strong" : "moderate";
-  } else if (totalScore === 1) {
-    direction = "BUY"; strength = "swing";
-  } else if (totalScore === -1) {
-    direction = "SELL"; strength = "swing";
+  if (structureDirection) {
+    direction = structureDirection;
+  } else if (emaDirection) {
+    direction = emaDirection;
+  } else if (momentumDirection) {
+    direction = momentumDirection;
   } else {
-    // Score = 0 → ranging; use EMA as final tiebreaker
-    strength = "ranging";
-    direction = ema8 >= ema21 ? "BUY" : "SELL";
+    direction = emaFast >= emaSlow ? "BUY" : "SELL";
   }
 
-  // Downgrade to "weak" when swing data is insufficient
-  if (swingHighs.length < 2 && swingLows.length < 2 && strength === "swing") {
+  const allTrendEvidenceAgrees =
+    structureDirection === direction &&
+    emaDirection === direction &&
+    momentumDirection === direction;
+  const hasDirectConflict =
+    structureDirection !== null &&
+    emaDirection !== null &&
+    structureDirection !== emaDirection;
+
+  let marketState: MarketState;
+  let strength: SignalStrength;
+  if (adx < 18 || Math.abs(score) <= 1) {
+    marketState = "RANGING";
+    strength = "ranging";
+  } else if (hasDirectConflict) {
+    marketState = "TRANSITION";
     strength = "weak";
+  } else {
+    marketState = "TRENDING";
+    strength = allTrendEvidenceAgrees || (adx >= 25 && Math.abs(score) >= 4)
+      ? "strong"
+      : Math.abs(score) >= 3 ? "moderate" : "swing";
   }
+
+  const structure = hhhl ? "HH-HL" : lhll ? "LH-LL" : "RANGE";
 
   return {
     direction,
-    structure: direction === "BUY" ? "HH-HL" : "LH-LL",
-    explanation: buildExplanation(direction, strength, rsi, ema8, ema21),
+    structure,
+    explanation: buildExplanation({
+      direction,
+      structure,
+      marketState,
+      strength,
+      rsi,
+      adx,
+      structureDirection,
+      emaDirection,
+      momentumDirection,
+    }),
     strength,
-    rsi: parseFloat(rsi.toFixed(1)),
-    ema8: parseFloat(ema8.toFixed(5)),
-    ema21: parseFloat(ema21.toFixed(5)),
-    currentPrice: parseFloat(last.close.toFixed(5)),
+    marketState,
+    rsi: Number(rsi.toFixed(1)),
+    adx: Number(adx.toFixed(1)),
+    emaFast: Number(emaFast.toFixed(5)),
+    emaSlow: Number(emaSlow.toFixed(5)),
+    currentPrice: Number(last.close.toFixed(5)),
+    candleTime: last.datetime,
   };
 }
 
-function buildExplanation(
-  direction: TrendDirection,
-  strength: SignalStrength,
-  rsi: number,
-  ema8: number,
-  ema21: number,
-): string {
-  const rsiNote = `RSI ${rsi.toFixed(0)} (${rsi > 55 ? "bullish" : rsi < 45 ? "bearish" : "netral"}).`;
+function buildExplanation(args: {
+  direction: TrendDirection;
+  structure: "HH-HL" | "LH-LL" | "RANGE";
+  marketState: MarketState;
+  strength: SignalStrength;
+  rsi: number;
+  adx: number;
+  structureDirection: TrendDirection | null;
+  emaDirection: TrendDirection | null;
+  momentumDirection: TrendDirection | null;
+}): string {
+  const {
+    direction,
+    structure,
+    marketState,
+    strength,
+    rsi,
+    adx,
+    structureDirection,
+    emaDirection,
+    momentumDirection,
+  } = args;
 
-  switch (strength) {
-    case "strong":
-      return direction === "BUY"
-        ? `EMA8 > EMA21, RSI ${rsi.toFixed(0)} bullish, struktur HH-HL terkonfirmasi. Tren bullish kuat dari 3 faktor.`
-        : `EMA8 < EMA21, RSI ${rsi.toFixed(0)} bearish, struktur LH-LL terkonfirmasi. Tren bearish kuat dari 3 faktor.`;
-    case "moderate":
-      return direction === "BUY"
-        ? `EMA8 > EMA21 dan RSI bullish mengkonfirmasi bias BUY. ${rsiNote} Swing masih berkembang.`
-        : `EMA8 < EMA21 dan RSI bearish mengkonfirmasi bias SELL. ${rsiNote} Swing masih berkembang.`;
-    case "swing":
-      return direction === "BUY"
-        ? `Struktur HH-HL terdeteksi dari pivot swing. ${rsiNote} EMA belum fully crossed.`
-        : `Struktur LH-LL terdeteksi dari pivot swing. ${rsiNote} EMA belum fully crossed.`;
-    case "ranging":
-      return `Pasar sedang ranging/konsolidasi. Score seimbang. ${rsiNote} Tunggu breakout yang jelas sebelum entry.`;
-    default:
-      return direction === "BUY"
-        ? `Price action mayoritas bullish. Sinyal lemah — butuh konfirmasi lebih lanjut. ${rsiNote}`
-        : `Price action mayoritas bearish. Sinyal lemah — butuh konfirmasi lebih lanjut. ${rsiNote}`;
+  if (marketState === "RANGING") {
+    return `Pasar RANGING, bukan tren bersih. Struktur ${structure}; ADX ${adx.toFixed(0)} dan RSI ${rsi.toFixed(0)}. Hindari entry sampai breakout dan retest terkonfirmasi.`;
   }
+  if (marketState === "TRANSITION") {
+    return `Pasar TRANSITION: struktur ${structureDirection ?? "belum jelas"} berlawanan dengan EMA. RSI ${rsi.toFixed(0)}, ADX ${adx.toFixed(0)}. Jangan mengejar harga; tunggu struktur dan EMA kembali searah.`;
+  }
+  if (strength === "strong") {
+    return direction === "BUY"
+      ? `Tren BUY kuat: struktur HH-HL, EMA20 di atas EMA50, RSI ${rsi.toFixed(0)}, ADX ${adx.toFixed(0)}. Konfirmasi multi-faktor searah.`
+      : `Tren SELL kuat: struktur LH-LL, EMA20 di bawah EMA50, RSI ${rsi.toFixed(0)}, ADX ${adx.toFixed(0)}. Konfirmasi multi-faktor searah.`;
+  }
+  if (strength === "moderate") {
+    return direction === "BUY"
+      ? `Bias BUY moderat: EMA dan momentum mendukung. Struktur ${structure}; RSI ${rsi.toFixed(0)}, ADX ${adx.toFixed(0)}. Tunggu pullback dan candle konfirmasi.`
+      : `Bias SELL moderat: EMA dan momentum mendukung. Struktur ${structure}; RSI ${rsi.toFixed(0)}, ADX ${adx.toFixed(0)}. Tunggu rally dan candle konfirmasi.`;
+  }
+  return direction === "BUY"
+    ? `Struktur HH-HL mulai terlihat, tetapi konfirmasi belum lengkap. EMA: ${emaDirection ?? "netral"}, RSI: ${momentumDirection ?? "netral"}.`
+    : `Struktur LH-LL mulai terlihat, tetapi konfirmasi belum lengkap. EMA: ${emaDirection ?? "netral"}, RSI: ${momentumDirection ?? "netral"}.`;
 }

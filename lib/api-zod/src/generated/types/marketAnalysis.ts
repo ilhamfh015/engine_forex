@@ -8,6 +8,7 @@
 import type { ChecklistItem } from './checklistItem';
 import type { MarketAnalysisConfidenceLevel } from './marketAnalysisConfidenceLevel';
 import type { MarketSummary } from './marketSummary';
+import type { TradeSetup } from './tradeSetup';
 import type { TrendData } from './trendData';
 
 /**
@@ -25,4 +26,11 @@ export interface MarketAnalysis {
   confidenceLevel: MarketAnalysisConfidenceLevel;
   checklist: ChecklistItem[];
   summary: MarketSummary;
+  /** True only when H1 and M15 are both trending in the same direction */
+  timeframeAligned: boolean;
+  /** False when conditions are not safe for a directional entry */
+  tradeAllowed: boolean;
+  /** Risk-aware explanation of the confidence result */
+  note: string;
+  tradeSetup: TradeSetup;
 }

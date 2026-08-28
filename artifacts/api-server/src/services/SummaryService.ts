@@ -6,6 +6,7 @@
  */
 
 import type { TrendDirection } from "./MarketStructureService.js";
+import type { MarketState } from "./MarketStructureService.js";
 import type { ChecklistItem, ConfidenceLevel } from "./EntryConfidenceService.js";
 
 export interface MarketSummary {
@@ -23,12 +24,21 @@ function buildReason(
   h1Direction: TrendDirection,
   m15Direction: TrendDirection,
   checklist: ChecklistItem[],
+  h1State: MarketState,
+  m15State: MarketState,
 ): string {
   const lines: string[] = [];
 
-  // Sentence 1: timeframe alignment
-  if (h1Direction === m15Direction) {
+  if (h1State !== "TRENDING" || m15State !== "TRENDING") {
+    lines.push(`Status: jangan entry dulu. H1 ${h1State}, M15 ${m15State}; sistem menunggu tren yang lebih bersih.`);
+  }
+
+  // Sentence 1: timeframe alignment. Matching directions alone are not
+  // enough; both timeframes must be in a confirmed trend state.
+  if (h1Direction === m15Direction && h1State === "TRENDING" && m15State === "TRENDING") {
     lines.push(`Trend H1 dan M15 sama-sama ${h1Direction}. Konfluensi timeframe terkonfirmasi.`);
+  } else if (h1Direction === m15Direction) {
+    lines.push(`Arah H1 dan M15 sama-sama ${h1Direction}, tetapi state belum sama-sama trending. Ini belum menjadi konfluensi entry.`);
   } else {
     lines.push(`Trend H1 ${h1Direction} namun M15 ${m15Direction}. Perlu perhatian lebih pada konfirmasi.`);
   }
@@ -45,8 +55,7 @@ function buildReason(
   // Sentence 3: candle confirmation
   const confirmation = checklist.find((c) => c.label.includes("Confirmation"));
   if (confirmation?.passed) {
-    const candleName = h1Direction === "BUY" ? "Bullish Engulfing" : "Bearish Engulfing";
-    lines.push(`Muncul ${candleName} sebagai konfirmasi arah.`);
+    lines.push(`Candle tertutup terakhir mendukung arah ${h1Direction}.`);
   } else {
     lines.push(`Belum ada konfirmasi candle yang kuat pada level ini.`);
   }
@@ -54,7 +63,7 @@ function buildReason(
   // Sentence 4: risk/reward
   const rr = checklist.find((c) => c.label.includes("Risk Reward"));
   if (rr?.passed) {
-    lines.push(`Risk Reward memenuhi syarat minimum 1:2.`);
+    lines.push(`Risk Reward memenuhi syarat minimum 1:1.5.`);
   } else {
     lines.push(`Risk Reward belum memenuhi syarat. Pertimbangkan ulang level entry.`);
   }
@@ -79,6 +88,8 @@ export function generateSummary(
   confidence: number,
   confidenceLevel: ConfidenceLevel,
   checklist: ChecklistItem[],
+  h1State: MarketState = "TRENDING",
+  m15State: MarketState = "TRENDING",
 ): MarketSummary {
   // Bias follows H1 direction — H1 determines the trend
   const bias: TrendDirection = h1Direction;
@@ -87,6 +98,6 @@ export function generateSummary(
     bias,
     confidence,
     confidenceLevel,
-    reason: buildReason(pair, h1Direction, m15Direction, checklist),
+    reason: buildReason(pair, h1Direction, m15Direction, checklist, h1State, m15State),
   };
 }

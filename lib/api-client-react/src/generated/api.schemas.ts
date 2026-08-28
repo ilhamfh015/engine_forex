@@ -25,6 +25,32 @@ export const TrendDataDirection = {
 } as const;
 
 /**
+ * Signal strength based on triple-factor confirmation
+ */
+export type TrendDataStrength = typeof TrendDataStrength[keyof typeof TrendDataStrength];
+
+
+export const TrendDataStrength = {
+  strong: 'strong',
+  moderate: 'moderate',
+  swing: 'swing',
+  weak: 'weak',
+  ranging: 'ranging',
+} as const;
+
+/**
+ * Whether the timeframe is trending, transitioning, or ranging
+ */
+export type TrendDataMarketState = typeof TrendDataMarketState[keyof typeof TrendDataMarketState];
+
+
+export const TrendDataMarketState = {
+  TRENDING: 'TRENDING',
+  TRANSITION: 'TRANSITION',
+  RANGING: 'RANGING',
+} as const;
+
+/**
  * Trend direction with market structure explanation
  */
 export interface TrendData {
@@ -34,6 +60,73 @@ export interface TrendData {
   structure: string;
   /** Short description of current market structure */
   explanation: string;
+  /** Signal strength based on triple-factor confirmation */
+  strength: TrendDataStrength;
+  /** RSI(14) value at time of analysis */
+  rsi: number;
+  /** ADX(14) trend-strength value */
+  adx: number;
+  /** EMA(20) value */
+  emaFast: number;
+  /** EMA(50) value */
+  emaSlow: number;
+  /** Last close price used for analysis */
+  currentPrice: number;
+  /** Whether the timeframe is trending, transitioning, or ranging */
+  marketState: TrendDataMarketState;
+  /** Timestamp of the last closed candle used */
+  candleTime: string;
+}
+
+export type TradeSetupDirection = typeof TradeSetupDirection[keyof typeof TradeSetupDirection];
+
+
+export const TradeSetupDirection = {
+  BUY: 'BUY',
+  SELL: 'SELL',
+} as const;
+
+export type TradeSetupStatus = typeof TradeSetupStatus[keyof typeof TradeSetupStatus];
+
+
+export const TradeSetupStatus = {
+  READY: 'READY',
+  WAIT: 'WAIT',
+  NO_TRADE: 'NO_TRADE',
+} as const;
+
+/**
+ * Optimal trade setup levels — entry zone, SL, and TP targets
+ */
+export interface TradeSetup {
+  direction: TradeSetupDirection;
+  status: TradeSetupStatus;
+  /** Why the setup is ready or why the trader should wait */
+  statusReason: string;
+  /** Last closed candle price */
+  currentPrice: number;
+  /** Lower bound of the ideal entry zone */
+  entryZoneMin: number;
+  /** Upper bound of the ideal entry zone */
+  entryZoneMax: number;
+  /** Reference entry at the zone midpoint */
+  entryPrice: number;
+  /** Status label — e.g. IN ZONE, TUNGGU PULLBACK */
+  entryZoneLabel: string;
+  /** Stop-loss price level */
+  stopLoss: number;
+  /** Take-profit 1 (1:1 RR) */
+  tp1: number;
+  /** Take-profit 2 (1:2 RR) */
+  tp2: number;
+  /** Take-profit 3 (1:3 RR or next key swing) */
+  tp3: number;
+  /** Reward/Risk ratio to TP2 from current price */
+  riskRewardRatio: number;
+  /** Risk in price points (entry zone mid to SL) */
+  riskPoints: number;
+  /** Pip/point size for this instrument */
+  pipSize: number;
 }
 
 /**
@@ -101,6 +194,13 @@ export interface MarketAnalysis {
   confidenceLevel: MarketAnalysisConfidenceLevel;
   checklist: ChecklistItem[];
   summary: MarketSummary;
+  /** True only when H1 and M15 are both trending in the same direction */
+  timeframeAligned: boolean;
+  /** False when conditions are not safe for a directional entry */
+  tradeAllowed: boolean;
+  /** Risk-aware explanation of the confidence result */
+  note: string;
+  tradeSetup: TradeSetup;
 }
 
 export type AnalysisSnapshotTrendH1Direction = typeof AnalysisSnapshotTrendH1Direction[keyof typeof AnalysisSnapshotTrendH1Direction];

@@ -142,24 +142,37 @@ components:
         rsi:
           type: number
           description: RSI(14) value at time of analysis
-        ema8:
+        adx:
           type: number
-          description: EMA(8) value
-        ema21:
+          description: ADX(14) trend-strength value
+        emaFast:
           type: number
-          description: EMA(21) value
+          description: EMA(20) value
+        emaSlow:
+          type: number
+          description: EMA(50) value
         currentPrice:
           type: number
           description: Last close price used for analysis
+        marketState:
+          type: string
+          enum: [TRENDING, TRANSITION, RANGING]
+          description: Whether the timeframe is trending, transitioning, or ranging
+        candleTime:
+          type: string
+          description: Timestamp of the last closed candle used
       required:
         - direction
         - structure
         - explanation
         - strength
         - rsi
-        - ema8
-        - ema21
+        - adx
+        - emaFast
+        - emaSlow
         - currentPrice
+        - marketState
+        - candleTime
 
     TradeSetup:
       type: object
@@ -168,12 +181,24 @@ components:
         direction:
           type: string
           enum: [BUY, SELL]
+        status:
+          type: string
+          enum: [READY, WAIT, NO_TRADE]
+        statusReason:
+          type: string
+          description: Why the setup is ready or why the trader should wait
+        currentPrice:
+          type: number
+          description: Last closed candle price
         entryZoneMin:
           type: number
           description: Lower bound of the ideal entry zone
         entryZoneMax:
           type: number
           description: Upper bound of the ideal entry zone
+        entryPrice:
+          type: number
+          description: Reference entry at the zone midpoint
         entryZoneLabel:
           type: string
           description: Status label — e.g. IN ZONE, TUNGGU PULLBACK
@@ -200,8 +225,12 @@ components:
           description: Pip/point size for this instrument
       required:
         - direction
+        - status
+        - statusReason
+        - currentPrice
         - entryZoneMin
         - entryZoneMax
+        - entryPrice
         - entryZoneLabel
         - stopLoss
         - tp1
@@ -278,6 +307,15 @@ components:
             $ref: "#/components/schemas/ChecklistItem"
         summary:
           $ref: "#/components/schemas/MarketSummary"
+        timeframeAligned:
+          type: boolean
+          description: True only when H1 and M15 are both trending in the same direction
+        tradeAllowed:
+          type: boolean
+          description: False when conditions are not safe for a directional entry
+        note:
+          type: string
+          description: Risk-aware explanation of the confidence result
         tradeSetup:
           $ref: "#/components/schemas/TradeSetup"
       required:
@@ -289,6 +327,10 @@ components:
         - confidenceLevel
         - checklist
         - summary
+        - timeframeAligned
+        - tradeAllowed
+        - note
+        - tradeSetup
         - tradeSetup
 
     AnalysisSnapshot:

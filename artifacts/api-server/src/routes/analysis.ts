@@ -14,7 +14,7 @@ import { analyzeTrendFromCandles, SUPPORTED_PAIRS } from "../services/MarketStru
 import { calculateConfidence } from "../services/EntryConfidenceService.js";
 import { generateSummary } from "../services/SummaryService.js";
 import { buildTradeSetup } from "../services/TradeSetupService.js";
-import { getCandles } from "../services/TwelveDataService.js";
+import { getCandles, getClosedCandles } from "../services/TwelveDataService.js";
 import { db, marketAnalysisTable } from "@workspace/db";
 import { desc, eq } from "drizzle-orm";
 
@@ -37,29 +37,50 @@ router.get("/analysis/:pair", async (req: Request, res: Response) => {
 
   try {
     // 1. Fetch live candles for both timeframes in parallel (cached per TTL)
-    //    50 candles gives ~50h of H1 context and ~12.5h of M15 for robust swing detection.
+    //    100 candles gives enough warm-up for EMA50 and confirmed swing structure.
     const [candlesH1, candlesM15] = await Promise.all([
-      getCandles(pair, "H1", 50),
-      getCandles(pair, "M15", 50),
+      getCandles(pair, "H1", 100),
+      getCandles(pair, "M15", 100),
     ]);
 
-    // 2. Analyze market structure from real candles
-    const trendH1 = analyzeTrendFromCandles(candlesH1);
-    const trendM15 = analyzeTrendFromCandles(candlesM15);
+    // 2. Analyze only closed candles. Twelve Data may include the currently
+    //    forming candle, which must never create a confirmed trend signal.
+    const closedH1 = getClosedCandles(candlesH1);
+    const closedM15 = getClosedCandles(candlesM15);
+    const trendH1 = analyzeTrendFromCandles(closedH1);
+    const trendM15 = analyzeTrendFromCandles(closedM15);
 
     // 3. Calculate entry confidence using M15 candles (most granular recent data)
-    const { score, level, checklist } = calculateConfidence(
+    const { score, level, checklist, timeframeAligned, tradeAllowed, note } = calculateConfidence(
       pair,
       trendH1.direction,
       trendM15.direction,
-      candlesM15,
+      closedM15,
+      trendH1.marketState,
+      trendM15.marketState,
     );
 
     // 4. Generate market summary
-    const summary = generateSummary(pair, trendH1.direction, trendM15.direction, score, level, checklist);
+    const summary = generateSummary(
+      pair,
+      trendH1.direction,
+      trendM15.direction,
+      score,
+      level,
+      checklist,
+      trendH1.marketState,
+      trendM15.marketState,
+    );
 
     // 5. Build trade setup (entry zone, SL, TP1/2/3) from M15 candles + H1 bias
-    const tradeSetup = buildTradeSetup(pair, trendH1.direction, candlesM15);
+    const tradeSetup = buildTradeSetup(
+      pair,
+      trendH1.direction,
+      closedM15,
+      trendH1.marketState,
+      trendM15.marketState,
+      trendM15.direction,
+    );
 
     // 6. Persist snapshot to database (fire-and-forget, do not block response)
     db.insert(marketAnalysisTable)
@@ -90,6 +111,9 @@ router.get("/analysis/:pair", async (req: Request, res: Response) => {
       confidenceLevel: level,
       checklist,
       summary,
+      timeframeAligned,
+      tradeAllowed,
+      note,
       tradeSetup,
     });
   } catch (err) {
@@ -162,18 +186,29 @@ router.get("/analysis/pairs/summary", async (req: Request, res: Response) => {
 
     for (const pair of SUPPORTED_PAIRS) {
       const [candlesH1, candlesM15] = await Promise.all([
-        getCandles(pair, "H1", 50),
-        getCandles(pair, "M15", 50),
+        getCandles(pair, "H1", 100),
+        getCandles(pair, "M15", 100),
       ]);
-      const trendH1 = analyzeTrendFromCandles(candlesH1);
-      const trendM15 = analyzeTrendFromCandles(candlesM15);
+      const trendH1 = analyzeTrendFromCandles(getClosedCandles(candlesH1));
+      const trendM15 = analyzeTrendFromCandles(getClosedCandles(candlesM15));
       const { score, level } = calculateConfidence(
         pair,
         trendH1.direction,
         trendM15.direction,
-        candlesM15,
+        getClosedCandles(candlesM15),
+        trendH1.marketState,
+        trendM15.marketState,
       );
-      const summary = generateSummary(pair, trendH1.direction, trendM15.direction, score, level, []);
+      const summary = generateSummary(
+        pair,
+        trendH1.direction,
+        trendM15.direction,
+        score,
+        level,
+        [],
+        trendH1.marketState,
+        trendM15.marketState,
+      );
 
       summaries.push({
         pair,
