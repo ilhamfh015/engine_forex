@@ -249,9 +249,12 @@ function buildExplanation(args: {
     return `Pasar TRANSITION: struktur ${structureDirection ?? "belum jelas"}, EMA ${emaDirection ?? "netral"}, DMI ${dmiDirection ?? "netral"}. RSI ${rsi.toFixed(0)}, ADX ${adx.toFixed(0)}. Jangan mengejar harga; tunggu struktur, EMA, dan DMI kembali searah.`;
   }
   if (strength === "strong") {
+    const structureText = structure === "RANGE"
+      ? `struktur belum membentuk ${direction === "BUY" ? "HH-HL" : "LH-LL"}`
+      : `struktur ${structure}`;
     return direction === "BUY"
-      ? `Tren BUY kuat: struktur HH-HL, EMA20 di atas EMA50, RSI ${rsi.toFixed(0)}, ADX ${adx.toFixed(0)}. Konfirmasi multi-faktor searah.`
-      : `Tren SELL kuat: struktur LH-LL, EMA20 di bawah EMA50, RSI ${rsi.toFixed(0)}, ADX ${adx.toFixed(0)}. Konfirmasi multi-faktor searah.`;
+      ? `Tren BUY kuat dari EMA/DMI: ${structureText}, EMA20 di atas EMA50, RSI ${rsi.toFixed(0)}, ADX ${adx.toFixed(0)}. Konfirmasi multi-faktor searah.`
+      : `Tren SELL kuat dari EMA/DMI: ${structureText}, EMA20 di bawah EMA50, RSI ${rsi.toFixed(0)}, ADX ${adx.toFixed(0)}. Konfirmasi multi-faktor searah.`;
   }
   if (strength === "moderate") {
     return direction === "BUY"
@@ -259,6 +262,6 @@ function buildExplanation(args: {
       : `Bias SELL moderat: EMA dan momentum mendukung. Struktur ${structure}; RSI ${rsi.toFixed(0)}, ADX ${adx.toFixed(0)}. Tunggu rally dan candle konfirmasi.`;
   }
   return direction === "BUY"
-    ? `Struktur HH-HL mulai terlihat, tetapi konfirmasi belum lengkap. EMA: ${emaDirection ?? "netral"}, RSI: ${momentumDirection ?? "netral"}.`
-    : `Struktur LH-LL mulai terlihat, tetapi konfirmasi belum lengkap. EMA: ${emaDirection ?? "netral"}, RSI: ${momentumDirection ?? "netral"}.`;
+    ? `Struktur ${structure} mulai terlihat, tetapi konfirmasi belum lengkap. EMA: ${emaDirection ?? "netral"}, RSI: ${momentumDirection ?? "netral"}.`
+    : `Struktur ${structure} mulai terlihat, tetapi konfirmasi belum lengkap. EMA: ${emaDirection ?? "netral"}, RSI: ${momentumDirection ?? "netral"}.`;
 }
