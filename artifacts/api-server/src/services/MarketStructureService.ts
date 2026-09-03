@@ -14,12 +14,12 @@
  */
 
 import {
-  calcADX,
   calcATR,
   calcEMA,
+  calcDMI,
   calcRSI,
-  findSwingHighs,
-  findSwingLows,
+  findSwingHighPoints,
+  findSwingLowPoints,
 } from "./TwelveDataService.js";
 import type { Candle } from "./TwelveDataService.js";
 
@@ -35,6 +35,9 @@ export interface TrendData {
   marketState: MarketState;
   rsi: number;
   adx: number;
+  diPlus: number;
+  diMinus: number;
+  adxSlope: number;
   emaFast: number;
   emaSlow: number;
   currentPrice: number;
@@ -44,7 +47,14 @@ export interface TrendData {
 export const SUPPORTED_PAIRS = ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "BTCUSD"] as const;
 export type SupportedPair = (typeof SUPPORTED_PAIRS)[number];
 
-const MIN_CANDLES = 55;
+const MAX_ANALYSIS_CANDLES = 100;
+const STRUCTURE_WINDOW = 64;
+const MAX_PIVOT_AGE = 32;
+const MIN_STRUCTURE_CHANGE_ATR = 0.2;
+const MIN_EMA_SEPARATION_ATR = 0.15;
+const MIN_EMA_SLOPE_ATR = 0.05;
+const MIN_DI_SEPARATION = 3;
+const MIN_TREND_ADX = 20;
 
 /**
  * Analyze only confirmed candles, ordered oldest → newest.
@@ -58,8 +68,8 @@ export function analyzeTrendFromCandles(candles: Candle[]): TrendData {
     throw new Error("Cannot analyze an empty candle series");
   }
 
-  const usable = candles.length > MIN_CANDLES
-    ? candles.slice(-Math.max(MIN_CANDLES, candles.length))
+  const usable = candles.length > MAX_ANALYSIS_CANDLES
+    ? candles.slice(-MAX_ANALYSIS_CANDLES)
     : candles;
   const n = usable.length;
   const last = usable[n - 1];
@@ -69,71 +79,103 @@ export function analyzeTrendFromCandles(candles: Candle[]): TrendData {
   const emaFast = emaFastSeries[n - 1];
   const emaSlow = emaSlowSeries[n - 1];
   const slopeIndex = Math.max(0, n - 6);
-  const fastSlope = emaFast - emaFastSeries[slopeIndex];
-  const slowSlope = emaSlow - emaSlowSeries[slopeIndex];
+  // Normalize EMA slopes by ATR so the same thresholds work for FX, gold,
+  // JPY pairs, and crypto instead of using instrument-specific raw prices.
+  const fastSlopeAtr = atr > 0 ? (emaFast - emaFastSeries[slopeIndex]) / atr : 0;
+  const slowSlopeAtr = atr > 0 ? (emaSlow - emaSlowSeries[slopeIndex]) / atr : 0;
+  const emaSpreadAtr = atr > 0 ? (emaFast - emaSlow) / atr : 0;
   const rsi = calcRSI(usable, 14);
-  const adx = calcADX(usable, 14);
+  const dmi = calcDMI(usable, 14);
+  const adx = dmi.adx;
 
-  const swingHighs = findSwingHighs(usable, 2, atr, 0.25);
-  const swingLows = findSwingLows(usable, 2, atr, 0.25);
+  // Ignore old pivots from a previous regime. A trend is only valid when its
+  // latest structural evidence is recent enough to describe current price.
+  const swingHighs = findSwingHighPoints(usable, 2, atr, 0.3)
+    .filter((point) => point.index >= n - STRUCTURE_WINDOW);
+  const swingLows = findSwingLowPoints(usable, 2, atr, 0.3)
+    .filter((point) => point.index >= n - STRUCTURE_WINDOW);
+  const lastHigh = swingHighs.at(-1);
+  const previousHigh = swingHighs.at(-2);
+  const lastLow = swingLows.at(-1);
+  const previousLow = swingLows.at(-2);
+  const pivotsAreRecent =
+    !!lastHigh &&
+    !!lastLow &&
+    lastHigh.index >= n - MAX_PIVOT_AGE &&
+    lastLow.index >= n - MAX_PIVOT_AGE;
 
   const hhhl =
-    swingHighs.length >= 2 &&
-    swingLows.length >= 2 &&
-    swingHighs.at(-1)! > swingHighs.at(-2)! &&
-    swingLows.at(-1)! > swingLows.at(-2)!;
+    pivotsAreRecent &&
+    !!previousHigh &&
+    !!previousLow &&
+    lastHigh.price > previousHigh.price + MIN_STRUCTURE_CHANGE_ATR * atr &&
+    lastLow.price > previousLow.price + MIN_STRUCTURE_CHANGE_ATR * atr;
   const lhll =
-    swingHighs.length >= 2 &&
-    swingLows.length >= 2 &&
-    swingHighs.at(-1)! < swingHighs.at(-2)! &&
-    swingLows.at(-1)! < swingLows.at(-2)!;
+    pivotsAreRecent &&
+    !!previousHigh &&
+    !!previousLow &&
+    lastHigh.price < previousHigh.price - MIN_STRUCTURE_CHANGE_ATR * atr &&
+    lastLow.price < previousLow.price - MIN_STRUCTURE_CHANGE_ATR * atr;
 
   const structureDirection: TrendDirection | null = hhhl ? "BUY" : lhll ? "SELL" : null;
   const emaDirection: TrendDirection | null =
-    emaFast > emaSlow && last.close > emaSlow && fastSlope > 0 && slowSlope >= 0
+    emaSpreadAtr >= MIN_EMA_SEPARATION_ATR &&
+    last.close > emaSlow &&
+    fastSlopeAtr >= MIN_EMA_SLOPE_ATR &&
+    slowSlopeAtr >= -0.02
       ? "BUY"
-      : emaFast < emaSlow && last.close < emaSlow && fastSlope < 0 && slowSlope <= 0
+      : emaSpreadAtr <= -MIN_EMA_SEPARATION_ATR &&
+        last.close < emaSlow &&
+        fastSlopeAtr <= -MIN_EMA_SLOPE_ATR &&
+        slowSlopeAtr <= 0.02
         ? "SELL"
         : null;
   const momentumDirection: TrendDirection | null =
-    rsi >= 52 ? "BUY" : rsi <= 48 ? "SELL" : null;
+    rsi >= 55 ? "BUY" : rsi <= 45 ? "SELL" : null;
+  const dmiDirection: TrendDirection | null =
+    dmi.plusDI >= dmi.minusDI + MIN_DI_SEPARATION
+      ? "BUY"
+      : dmi.minusDI >= dmi.plusDI + MIN_DI_SEPARATION
+        ? "SELL"
+        : null;
 
   const structureScore = structureDirection === "BUY" ? 2 : structureDirection === "SELL" ? -2 : 0;
   const emaScore = emaDirection === "BUY" ? 2 : emaDirection === "SELL" ? -2 : 0;
   const momentumScore = momentumDirection === "BUY" ? 1 : momentumDirection === "SELL" ? -1 : 0;
-  const score = structureScore + emaScore + momentumScore;
+  const dmiScore = dmiDirection === "BUY" ? 1 : dmiDirection === "SELL" ? -1 : 0;
+  const score = structureScore + emaScore + momentumScore + dmiScore;
 
-  let direction: TrendDirection;
-  if (structureDirection) {
-    direction = structureDirection;
-  } else if (emaDirection) {
-    direction = emaDirection;
-  } else if (momentumDirection) {
-    direction = momentumDirection;
-  } else {
-    direction = emaFast >= emaSlow ? "BUY" : "SELL";
-  }
+  // Direction follows weighted consensus. This prevents a stale pivot from
+  // overriding a current EMA/DMI regime.
+  const direction: TrendDirection = score > 0
+    ? "BUY"
+    : score < 0
+      ? "SELL"
+      : emaFast >= emaSlow ? "BUY" : "SELL";
 
-  const allTrendEvidenceAgrees =
-    structureDirection === direction &&
-    emaDirection === direction &&
-    momentumDirection === direction;
-  const hasDirectConflict =
-    structureDirection !== null &&
-    emaDirection !== null &&
-    structureDirection !== emaDirection;
+  const structuralEvidence = [structureDirection, emaDirection, dmiDirection];
+  const supportingSignals = [structureDirection, emaDirection, momentumDirection, dmiDirection]
+    .filter((value) => value === direction).length;
+  const hardConflict = structuralEvidence.some(
+    (value, index) => value !== null && structuralEvidence.slice(index + 1).some((other) => other !== null && other !== value),
+  );
+  const consensus =
+    supportingSignals >= 3 &&
+    !hardConflict &&
+    (momentumDirection === null || momentumDirection === direction);
+  const losingStrength = dmi.adxSlope <= -3 && adx < 25;
 
   let marketState: MarketState;
   let strength: SignalStrength;
-  if (adx < 18 || Math.abs(score) <= 1) {
+  if (adx < MIN_TREND_ADX || Math.abs(score) < 2 || supportingSignals < 2) {
     marketState = "RANGING";
     strength = "ranging";
-  } else if (hasDirectConflict) {
+  } else if (hardConflict || losingStrength) {
     marketState = "TRANSITION";
     strength = "weak";
   } else {
     marketState = "TRENDING";
-    strength = allTrendEvidenceAgrees || (adx >= 25 && Math.abs(score) >= 4)
+    strength = consensus || (adx >= 25 && Math.abs(score) >= 4 && supportingSignals >= 3)
       ? "strong"
       : Math.abs(score) >= 3 ? "moderate" : "swing";
   }
@@ -150,14 +192,20 @@ export function analyzeTrendFromCandles(candles: Candle[]): TrendData {
       strength,
       rsi,
       adx,
+       diPlus: dmi.plusDI,
+       diMinus: dmi.minusDI,
       structureDirection,
       emaDirection,
       momentumDirection,
+       dmiDirection,
     }),
     strength,
     marketState,
     rsi: Number(rsi.toFixed(1)),
     adx: Number(adx.toFixed(1)),
+    diPlus: Number(dmi.plusDI.toFixed(1)),
+    diMinus: Number(dmi.minusDI.toFixed(1)),
+    adxSlope: Number(dmi.adxSlope.toFixed(1)),
     emaFast: Number(emaFast.toFixed(5)),
     emaSlow: Number(emaSlow.toFixed(5)),
     currentPrice: Number(last.close.toFixed(5)),
@@ -172,9 +220,12 @@ function buildExplanation(args: {
   strength: SignalStrength;
   rsi: number;
   adx: number;
+  diPlus: number;
+  diMinus: number;
   structureDirection: TrendDirection | null;
   emaDirection: TrendDirection | null;
   momentumDirection: TrendDirection | null;
+  dmiDirection: TrendDirection | null;
 }): string {
   const {
     direction,
@@ -183,16 +234,19 @@ function buildExplanation(args: {
     strength,
     rsi,
     adx,
+    diPlus,
+    diMinus,
     structureDirection,
     emaDirection,
     momentumDirection,
+    dmiDirection,
   } = args;
 
   if (marketState === "RANGING") {
-    return `Pasar RANGING, bukan tren bersih. Struktur ${structure}; ADX ${adx.toFixed(0)} dan RSI ${rsi.toFixed(0)}. Hindari entry sampai breakout dan retest terkonfirmasi.`;
+    return `Pasar RANGING, bukan tren bersih. Struktur ${structure}; ADX ${adx.toFixed(0)}, DI+ ${diPlus.toFixed(0)}, DI- ${diMinus.toFixed(0)}, RSI ${rsi.toFixed(0)}. Hindari entry sampai breakout dan retest terkonfirmasi.`;
   }
   if (marketState === "TRANSITION") {
-    return `Pasar TRANSITION: struktur ${structureDirection ?? "belum jelas"} berlawanan dengan EMA. RSI ${rsi.toFixed(0)}, ADX ${adx.toFixed(0)}. Jangan mengejar harga; tunggu struktur dan EMA kembali searah.`;
+    return `Pasar TRANSITION: struktur ${structureDirection ?? "belum jelas"}, EMA ${emaDirection ?? "netral"}, DMI ${dmiDirection ?? "netral"}. RSI ${rsi.toFixed(0)}, ADX ${adx.toFixed(0)}. Jangan mengejar harga; tunggu struktur, EMA, dan DMI kembali searah.`;
   }
   if (strength === "strong") {
     return direction === "BUY"

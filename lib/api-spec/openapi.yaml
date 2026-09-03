@@ -145,6 +145,15 @@ components:
         adx:
           type: number
           description: ADX(14) trend-strength value
+        diPlus:
+          type: number
+          description: Positive directional index (+DI)
+        diMinus:
+          type: number
+          description: Negative directional index (-DI)
+        adxSlope:
+          type: number
+          description: Recent ADX change; negative values indicate weakening trend strength
         emaFast:
           type: number
           description: EMA(20) value
@@ -168,6 +177,9 @@ components:
         - strength
         - rsi
         - adx
+        - diPlus
+        - diMinus
+        - adxSlope
         - emaFast
         - emaSlow
         - currentPrice

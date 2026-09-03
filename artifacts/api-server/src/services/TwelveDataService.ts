@@ -207,12 +207,24 @@ export function calcATR(candles: Candle[], period = 14): number {
   return atr;
 }
 
+export interface DMIResult {
+  adx: number;
+  plusDI: number;
+  minusDI: number;
+  adxSlope: number;
+}
+
 /**
- * Wilder's ADX(14). ADX measures trend strength, not direction.
- * Values below 20 usually indicate range/noise; 25+ is a healthier trend.
+ * Wilder's DMI/ADX.
+ *
+ * ADX measures trend strength; +DI/-DI provide directional pressure.
+ * `adxSlope` compares the current ADX with its recent value so a weakening
+ * trend can be marked as a transition instead of a fresh trend.
  */
-export function calcADX(candles: Candle[], period = 14): number {
-  if (candles.length < period * 2 + 1) return 0;
+export function calcDMI(candles: Candle[], period = 14): DMIResult {
+  if (candles.length < period * 2 + 1) {
+    return { adx: 0, plusDI: 0, minusDI: 0, adxSlope: 0 };
+  }
 
   const trs: number[] = [];
   const plusDM: number[] = [];
@@ -234,6 +246,7 @@ export function calcADX(candles: Candle[], period = 14): number {
   let plusSmoothed = plusDM.slice(0, period).reduce((a, b) => a + b, 0);
   let minusSmoothed = minusDM.slice(0, period).reduce((a, b) => a + b, 0);
   const dx: number[] = [];
+  const diValues: Array<{ plusDI: number; minusDI: number }> = [];
 
   for (let i = period; i < trs.length; i++) {
     trSmoothed = trSmoothed - trSmoothed / period + trs[i];
@@ -243,15 +256,31 @@ export function calcADX(candles: Candle[], period = 14): number {
     const minusDI = trSmoothed === 0 ? 0 : (100 * minusSmoothed) / trSmoothed;
     const denominator = plusDI + minusDI;
     dx.push(denominator === 0 ? 0 : (100 * Math.abs(plusDI - minusDI)) / denominator);
+    diValues.push({ plusDI, minusDI });
   }
 
-  if (dx.length === 0) return 0;
+  if (dx.length === 0 || diValues.length === 0) {
+    return { adx: 0, plusDI: 0, minusDI: 0, adxSlope: 0 };
+  }
   const seedLength = Math.min(period, dx.length);
   let adx = dx.slice(0, seedLength).reduce((a, b) => a + b, 0) / seedLength;
+  const adxSeries = [adx];
   for (let i = seedLength; i < dx.length; i++) {
     adx = (adx * (period - 1) + dx[i]) / period;
+    adxSeries.push(adx);
   }
-  return parseFloat(adx.toFixed(2));
+  const slopeIndex = Math.max(0, adxSeries.length - 5);
+  return {
+    adx: parseFloat(adx.toFixed(2)),
+    plusDI: parseFloat(diValues.at(-1)!.plusDI.toFixed(2)),
+    minusDI: parseFloat(diValues.at(-1)!.minusDI.toFixed(2)),
+    adxSlope: parseFloat((adx - adxSeries[slopeIndex]).toFixed(2)),
+  };
+}
+
+/** ADX-only compatibility helper for callers that do not need DMI details. */
+export function calcADX(candles: Candle[], period = 14): number {
+  return calcDMI(candles, period).adx;
 }
 
 /** The newest Twelve Data candle can still be forming; exclude it for signals. */
@@ -259,18 +288,23 @@ export function getClosedCandles(candles: Candle[]): Candle[] {
   return candles.length > 1 ? candles.slice(0, -1) : candles;
 }
 
+export interface SwingPoint {
+  index: number;
+  price: number;
+}
+
 /**
  * Pivot swing highs with minimum-size filter.
  * A pivot is valid only if its high exceeds all neighbors within `lookback`
  * AND the swing height >= minSizeMult * ATR (removes micro noise).
  */
-export function findSwingHighs(
+export function findSwingHighPoints(
   candles: Candle[],
   lookback = 2,
   atr = 0,
   minSizeMult = 0.3,
-): number[] {
-  const highs: number[] = [];
+): SwingPoint[] {
+  const highs: SwingPoint[] = [];
   for (let i = lookback; i < candles.length - lookback; i++) {
     let isPivot = true;
     for (let j = 1; j <= lookback; j++) {
@@ -287,21 +321,30 @@ export function findSwingHighs(
       );
       if (candles[i].high - lowestNeighbour < minSizeMult * atr) continue;
     }
-    highs.push(candles[i].high);
+    highs.push({ index: i, price: candles[i].high });
   }
   return highs;
 }
 
-/**
- * Pivot swing lows with minimum-size filter.
- */
-export function findSwingLows(
+export function findSwingHighs(
   candles: Candle[],
   lookback = 2,
   atr = 0,
   minSizeMult = 0.3,
 ): number[] {
-  const lows: number[] = [];
+  return findSwingHighPoints(candles, lookback, atr, minSizeMult).map((point) => point.price);
+}
+
+/**
+ * Pivot swing lows with minimum-size filter.
+ */
+export function findSwingLowPoints(
+  candles: Candle[],
+  lookback = 2,
+  atr = 0,
+  minSizeMult = 0.3,
+): SwingPoint[] {
+  const lows: SwingPoint[] = [];
   for (let i = lookback; i < candles.length - lookback; i++) {
     let isPivot = true;
     for (let j = 1; j <= lookback; j++) {
@@ -317,7 +360,16 @@ export function findSwingLows(
       );
       if (highestNeighbour - candles[i].low < minSizeMult * atr) continue;
     }
-    lows.push(candles[i].low);
+    lows.push({ index: i, price: candles[i].low });
   }
   return lows;
+}
+
+export function findSwingLows(
+  candles: Candle[],
+  lookback = 2,
+  atr = 0,
+  minSizeMult = 0.3,
+): number[] {
+  return findSwingLowPoints(candles, lookback, atr, minSizeMult).map((point) => point.price);
 }

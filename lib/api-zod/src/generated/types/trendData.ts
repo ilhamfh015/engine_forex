@@ -25,6 +25,12 @@ export interface TrendData {
   rsi: number;
   /** ADX(14) trend-strength value */
   adx: number;
+  /** Positive directional index (+DI) */
+  diPlus: number;
+  /** Negative directional index (-DI) */
+  diMinus: number;
+  /** Recent ADX change; negative values indicate weakening trend strength */
+  adxSlope: number;
   /** EMA(20) value */
   emaFast: number;
   /** EMA(50) value */

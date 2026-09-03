@@ -58,6 +58,8 @@ export function TrendCard({ timeframe, trend, index }: TrendCardProps) {
           </span>
           <span className="text-muted-foreground">RSI {trend.rsi.toFixed(1)}</span>
           <span className="text-muted-foreground">ADX {trend.adx.toFixed(1)}</span>
+           <span className="text-muted-foreground">DI+ {trend.diPlus.toFixed(1)}</span>
+           <span className="text-muted-foreground">DI- {trend.diMinus.toFixed(1)}</span>
         </div>
         <p className="text-sm text-muted-foreground leading-relaxed" data-testid={`text-explanation-${timeframe}`}>
           {trend.explanation}
