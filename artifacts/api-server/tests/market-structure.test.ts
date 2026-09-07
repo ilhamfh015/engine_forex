@@ -7,6 +7,9 @@ import {
   getClosedCandles,
 } from "../src/services/TwelveDataService.js";
 import type { Candle } from "../src/services/TwelveDataService.js";
+import { calculateConfidence } from "../src/services/EntryConfidenceService.js";
+import type { NewsRisk } from "../src/services/NewsService.js";
+import type { TrendData } from "../src/services/MarketStructureService.js";
 
 function makeSeries(direction: "BUY" | "SELL", count = 120): Candle[] {
   return Array.from({ length: count }, (_, index) => {
@@ -98,4 +101,47 @@ test("returns finite indicator values for short but usable input", () => {
   ]) {
     assert.ok(Number.isFinite(value));
   }
+});
+
+function makeStrongTrend(): TrendData {
+  return {
+    direction: "BUY",
+    structure: "HH-HL",
+    explanation: "Strong bullish test trend",
+    strength: "strong",
+    marketState: "TRENDING",
+    rsi: 58,
+    adx: 28,
+    diPlus: 31,
+    diMinus: 16,
+    adxSlope: 2,
+    emaFast: 101,
+    emaSlow: 100,
+    currentPrice: 101.2,
+    candleTime: new Date(Date.UTC(2026, 0, 6)).toISOString(),
+  };
+}
+
+function makeNewsRisk(status: NewsRisk["status"]): NewsRisk {
+  return {
+    status,
+    riskScore: status === "BLOCKED" ? 100 : status === "CLEAR" ? 0 : 55,
+    headline: status === "BLOCKED" ? "Central bank rate decision released" : "No high-impact headline",
+    source: "test",
+    fetchedAt: new Date(Date.UTC(2026, 0, 6)).toISOString(),
+    windowMinutes: 180,
+    items: [],
+    upcomingEvents: [],
+  };
+}
+
+test("high-impact news blocks an otherwise technically aligned entry", () => {
+  const trend = makeStrongTrend();
+  const candles = makeSeries("BUY");
+  const clear = calculateConfidence("EURUSD", trend, trend, candles, 2, makeNewsRisk("CLEAR"));
+  const blocked = calculateConfidence("EURUSD", trend, trend, candles, 2, makeNewsRisk("BLOCKED"));
+
+  assert.ok(blocked.score < clear.score);
+  assert.equal(blocked.tradeAllowed, false);
+  assert.match(blocked.note, /berita berdampak tinggi/i);
 });

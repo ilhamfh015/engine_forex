@@ -270,6 +270,97 @@ components:
         - passed
         - weight
 
+    NewsItem:
+      type: object
+      description: Recent relevant headline used for headline-risk filtering
+      properties:
+        title:
+          type: string
+        source:
+          type: string
+        url:
+          type: string
+        publishedAt:
+          type: string
+          format: date-time
+        impact:
+          type: string
+          enum: [HIGH, MEDIUM, LOW]
+        matchedKeywords:
+          type: array
+          items:
+            type: string
+      required:
+        - title
+        - source
+        - url
+        - publishedAt
+        - impact
+        - matchedKeywords
+
+    EconomicEvent:
+      type: object
+      description: Scheduled economic-calendar event relevant to the selected pair
+      properties:
+        title:
+          type: string
+        country:
+          type: string
+        scheduledAt:
+          type: string
+          format: date-time
+        impact:
+          type: string
+          enum: [HIGH, MEDIUM, LOW]
+        forecast:
+          type: string
+        previous:
+          type: string
+      required:
+        - title
+        - country
+        - scheduledAt
+        - impact
+        - forecast
+        - previous
+
+    NewsRisk:
+      type: object
+      description: Conservative recent-headline risk state; not a market prediction
+      properties:
+        status:
+          type: string
+          enum: [CLEAR, CAUTION, BLOCKED, UNAVAILABLE]
+        riskScore:
+          type: number
+          description: Headline risk score from 0 to 100
+        headline:
+          type: string
+        source:
+          type: string
+        fetchedAt:
+          type: string
+          format: date-time
+        windowMinutes:
+          type: number
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/NewsItem"
+        upcomingEvents:
+          type: array
+          items:
+            $ref: "#/components/schemas/EconomicEvent"
+      required:
+        - status
+        - riskScore
+        - headline
+        - source
+        - fetchedAt
+        - windowMinutes
+        - items
+        - upcomingEvents
+
     MarketSummary:
       type: object
       description: Overall trading bias summary with reasoning
@@ -328,6 +419,8 @@ components:
         note:
           type: string
           description: Risk-aware explanation of the confidence result
+        newsRisk:
+          $ref: "#/components/schemas/NewsRisk"
         tradeSetup:
           $ref: "#/components/schemas/TradeSetup"
       required:
@@ -342,7 +435,7 @@ components:
         - timeframeAligned
         - tradeAllowed
         - note
-        - tradeSetup
+        - newsRisk
         - tradeSetup
 
     AnalysisSnapshot:
@@ -400,6 +493,9 @@ components:
         trendM15:
           type: string
           enum: [BUY, SELL]
+        newsStatus:
+          type: string
+          enum: [CLEAR, CAUTION, BLOCKED, UNAVAILABLE]
         timestamp:
           type: string
           format: date-time
@@ -410,4 +506,5 @@ components:
         - confidenceLevel
         - trendH1
         - trendM15
+        - newsStatus
         - timestamp

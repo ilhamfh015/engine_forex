@@ -15,6 +15,7 @@ import { calculateConfidence } from "../services/EntryConfidenceService.js";
 import { generateSummary } from "../services/SummaryService.js";
 import { buildTradeSetup } from "../services/TradeSetupService.js";
 import { getCandles, getClosedCandles } from "../services/TwelveDataService.js";
+import { getNewsRisk } from "../services/NewsService.js";
 import { db, marketAnalysisTable } from "@workspace/db";
 import { desc, eq } from "drizzle-orm";
 
@@ -38,9 +39,10 @@ router.get("/analysis/:pair", async (req: Request, res: Response) => {
   try {
     // 1. Fetch live candles for both timeframes in parallel (cached per TTL)
     //    100 candles gives enough warm-up for EMA50 and confirmed swing structure.
-    const [candlesH1, candlesM15] = await Promise.all([
+    const [candlesH1, candlesM15, newsRisk] = await Promise.all([
       getCandles(pair, "H1", 100),
       getCandles(pair, "M15", 100),
+      getNewsRisk(pair),
     ]);
 
     // 2. Analyze only closed candles. Twelve Data may include the currently
@@ -50,17 +52,29 @@ router.get("/analysis/:pair", async (req: Request, res: Response) => {
     const trendH1 = analyzeTrendFromCandles(closedH1);
     const trendM15 = analyzeTrendFromCandles(closedM15);
 
-    // 3. Calculate entry confidence using M15 candles (most granular recent data)
-    const { score, level, checklist, timeframeAligned, tradeAllowed, note } = calculateConfidence(
+    // 3. Build trade setup before confidence so the score uses the actual
+    // planned entry midpoint → TP2 RR rather than a separate approximation.
+    const tradeSetup = buildTradeSetup(
       pair,
       trendH1.direction,
-      trendM15.direction,
       closedM15,
       trendH1.marketState,
       trendM15.marketState,
+      trendM15.direction,
     );
 
-    // 4. Generate market summary
+    // 4. Calculate entry confidence using the actual setup, both trend objects,
+    // and the current headline-risk state.
+    const { score, level, checklist, timeframeAligned, tradeAllowed, note } = calculateConfidence(
+      pair,
+      trendH1,
+      trendM15,
+      closedM15,
+      tradeSetup.riskRewardRatio,
+      newsRisk,
+    );
+
+    // 5. Generate market summary
     const summary = generateSummary(
       pair,
       trendH1.direction,
@@ -70,16 +84,7 @@ router.get("/analysis/:pair", async (req: Request, res: Response) => {
       checklist,
       trendH1.marketState,
       trendM15.marketState,
-    );
-
-    // 5. Build trade setup (entry zone, SL, TP1/2/3) from M15 candles + H1 bias
-    const tradeSetup = buildTradeSetup(
-      pair,
-      trendH1.direction,
-      closedM15,
-      trendH1.marketState,
-      trendM15.marketState,
-      trendM15.direction,
+      newsRisk,
     );
 
     // 6. Persist snapshot to database (fire-and-forget, do not block response)
@@ -115,6 +120,7 @@ router.get("/analysis/:pair", async (req: Request, res: Response) => {
       tradeAllowed,
       note,
       tradeSetup,
+      newsRisk,
     });
   } catch (err) {
     req.log.error({ err }, "Error generating analysis");
@@ -181,23 +187,35 @@ router.get("/analysis/pairs/summary", async (req: Request, res: Response) => {
       confidenceLevel: string;
       trendH1: string;
       trendM15: string;
+      newsStatus: string;
       timestamp: string;
     }> = [];
 
     for (const pair of SUPPORTED_PAIRS) {
-      const [candlesH1, candlesM15] = await Promise.all([
+      const [candlesH1, candlesM15, newsRisk] = await Promise.all([
         getCandles(pair, "H1", 100),
         getCandles(pair, "M15", 100),
+        getNewsRisk(pair),
       ]);
-      const trendH1 = analyzeTrendFromCandles(getClosedCandles(candlesH1));
-      const trendM15 = analyzeTrendFromCandles(getClosedCandles(candlesM15));
-      const { score, level } = calculateConfidence(
+      const closedH1 = getClosedCandles(candlesH1);
+      const closedM15 = getClosedCandles(candlesM15);
+      const trendH1 = analyzeTrendFromCandles(closedH1);
+      const trendM15 = analyzeTrendFromCandles(closedM15);
+      const tradeSetup = buildTradeSetup(
         pair,
         trendH1.direction,
-        trendM15.direction,
-        getClosedCandles(candlesM15),
+        closedM15,
         trendH1.marketState,
         trendM15.marketState,
+        trendM15.direction,
+      );
+      const { score, level } = calculateConfidence(
+        pair,
+        trendH1,
+        trendM15,
+        closedM15,
+        tradeSetup.riskRewardRatio,
+        newsRisk,
       );
       const summary = generateSummary(
         pair,
@@ -208,6 +226,7 @@ router.get("/analysis/pairs/summary", async (req: Request, res: Response) => {
         [],
         trendH1.marketState,
         trendM15.marketState,
+        newsRisk,
       );
 
       summaries.push({
@@ -217,6 +236,7 @@ router.get("/analysis/pairs/summary", async (req: Request, res: Response) => {
         confidenceLevel: level,
         trendH1: trendH1.direction,
         trendM15: trendM15.direction,
+        newsStatus: newsRisk.status,
         timestamp: new Date().toISOString(),
       });
     }

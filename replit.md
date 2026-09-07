@@ -33,9 +33,10 @@ A single-page professional trading dashboard that helps Forex traders analyze ma
 
 ## Architecture decisions
 
-- **Service Pattern**: All business logic lives in `artifacts/api-server/src/services/`. Controllers (routes) are thin — only HTTP in/out. This makes it easy to swap simulated data with real MT5 API calls later.
-- **Deterministic simulation**: Market analysis uses a seeded pseudo-random system keyed to pair + 15-min time bucket. This means data updates every 15 minutes (H1 every 60 min) without requiring a live broker connection.
-- **Confidence scoring**: Weighted 4-factor checklist (Harga dekat HL/LH 35%, Confirmation Candle 25%, Momentum Candle 20%, Risk Reward 20%). Ranges: Low 0–40%, Medium 41–70%, High 71–100%.
+- **Service Pattern**: All business logic lives in `artifacts/api-server/src/services/`. Controllers (routes) are thin — only HTTP in/out.
+- **Live data and safety filters**: Twelve Data supplies OHLC candles; signals only use closed candles. H1 and M15 must both be trending and aligned before an entry can be allowed.
+- **Confidence scoring**: Weighted confluence checklist covers timeframe alignment, confirmed structure, DMI/ADX, value zone, closed-candle confirmation, healthy momentum, planned RR, and news risk. High-impact or unavailable news blocks entry; caution news penalizes confidence.
+- **News risk**: Recent pair-relevant headlines and upcoming economic events are cached for 10 minutes. Headline data comes from Google News RSS; scheduled release data comes from the public Forex Factory calendar feed and is shown in Asia/Jakarta time. This is a conservative risk filter, not a sentiment guarantee.
 - **DB snapshots**: Every `/analysis/:pair` request fire-and-forgets a snapshot to `market_analysis` table for history tracking and future ML training.
 - **Dark mode**: Forced via `class="dark"` on `<html>` in `index.html`. Do NOT use `@apply dark` in CSS — it's not a utility class in TailwindCSS v4.
 
@@ -44,7 +45,8 @@ A single-page professional trading dashboard that helps Forex traders analyze ma
 - Supported pairs: EURUSD, GBPUSD, USDJPY, XAUUSD, BTCUSD
 - Trend H1 & M15: BUY (HH-HL) or SELL (LH-LL)
 - Entry Confidence: 0–100% with circular progress bar
-- Entry Analysis: 4-item checklist with pass/fail per condition
+- Entry Analysis: confluence checklist with pass/fail per condition
+- News Risk Filter: CLEAR / CAUTION / BLOCKED / UNAVAILABLE with recent headlines
 - Market Summary: bias, confidence %, confidence level, narrative reason
 - All Pairs Overview: clickable strip showing all 5 pairs at a glance
 - TradingView Widget: embeds live chart for selected pair

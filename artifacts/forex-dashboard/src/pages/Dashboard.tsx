@@ -8,6 +8,7 @@ import { SummaryCard } from '@/components/SummaryCard';
 import { PairsOverview } from '@/components/PairsOverview';
 import { TradingViewWidget } from '@/components/TradingViewWidget';
 import { TradeSetupCard } from '@/components/TradeSetupCard';
+import { NewsRiskCard } from '@/components/NewsRiskCard';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import {
   useGetAnalysis,
@@ -101,6 +102,7 @@ export default function Dashboard() {
         </div>
 
         <TradeSetupCard setup={analysis.tradeSetup} index={4} />
+        <NewsRiskCard risk={analysis.newsRisk} index={5} />
 
         {/* All Pairs Overview */}
         {allPairs && allPairs.length > 0 && (

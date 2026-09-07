@@ -76,6 +76,30 @@ export const GetAnalysisResponse = zod.object({
   "timeframeAligned": zod.boolean().describe('True only when H1 and M15 are both trending in the same direction'),
   "tradeAllowed": zod.boolean().describe('False when conditions are not safe for a directional entry'),
   "note": zod.string().describe('Risk-aware explanation of the confidence result'),
+  "newsRisk": zod.object({
+  "status": zod.enum(['CLEAR', 'CAUTION', 'BLOCKED', 'UNAVAILABLE']),
+  "riskScore": zod.number().describe('Headline risk score from 0 to 100'),
+  "headline": zod.string(),
+  "source": zod.string(),
+  "fetchedAt": zod.coerce.date(),
+  "windowMinutes": zod.number(),
+  "items": zod.array(zod.object({
+  "title": zod.string(),
+  "source": zod.string(),
+  "url": zod.string(),
+  "publishedAt": zod.coerce.date(),
+  "impact": zod.enum(['HIGH', 'MEDIUM', 'LOW']),
+  "matchedKeywords": zod.array(zod.string())
+}).describe('Recent relevant headline used for headline-risk filtering')),
+  "upcomingEvents": zod.array(zod.object({
+  "title": zod.string(),
+  "country": zod.string(),
+  "scheduledAt": zod.coerce.date(),
+  "impact": zod.enum(['HIGH', 'MEDIUM', 'LOW']),
+  "forecast": zod.string(),
+  "previous": zod.string()
+}).describe('Scheduled economic-calendar event relevant to the selected pair'))
+}).describe('Conservative recent-headline risk state; not a market prediction'),
   "tradeSetup": zod.object({
   "direction": zod.enum(['BUY', 'SELL']),
   "status": zod.enum(['READY', 'WAIT', 'NO_TRADE']),
@@ -128,6 +152,7 @@ export const GetAllPairsSummaryResponseItem = zod.object({
   "confidenceLevel": zod.enum(['High', 'Medium', 'Low']),
   "trendH1": zod.enum(['BUY', 'SELL']),
   "trendM15": zod.enum(['BUY', 'SELL']),
+  "newsStatus": zod.enum(['CLEAR', 'CAUTION', 'BLOCKED', 'UNAVAILABLE']),
   "timestamp": zod.coerce.date()
 }).describe('Quick summary for a single pair')
 export const GetAllPairsSummaryResponse = zod.array(GetAllPairsSummaryResponseItem)

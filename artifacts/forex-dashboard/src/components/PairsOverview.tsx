@@ -62,6 +62,18 @@ export function PairsOverview({ pairs, selectedPair, onPairSelect }: PairsOvervi
                     {pair.trendM15}
                   </span>
                 </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">News risk</span>
+                  <span className={
+                    pair.newsStatus === 'BLOCKED'
+                      ? 'font-semibold text-destructive'
+                      : pair.newsStatus === 'CAUTION' || pair.newsStatus === 'UNAVAILABLE'
+                        ? 'font-semibold text-yellow-500'
+                        : 'font-semibold text-primary'
+                  }>
+                    {pair.newsStatus}
+                  </span>
+                </div>
               </div>
             </motion.button>
           );

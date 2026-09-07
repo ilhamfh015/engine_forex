@@ -8,6 +8,7 @@
 import type { ChecklistItem } from './checklistItem';
 import type { MarketAnalysisConfidenceLevel } from './marketAnalysisConfidenceLevel';
 import type { MarketSummary } from './marketSummary';
+import type { NewsRisk } from './newsRisk';
 import type { TradeSetup } from './tradeSetup';
 import type { TrendData } from './trendData';
 
@@ -32,5 +33,6 @@ export interface MarketAnalysis {
   tradeAllowed: boolean;
   /** Risk-aware explanation of the confidence result */
   note: string;
+  newsRisk: NewsRisk;
   tradeSetup: TradeSetup;
 }

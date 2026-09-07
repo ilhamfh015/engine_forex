@@ -147,6 +147,73 @@ export interface ChecklistItem {
   weight: number;
 }
 
+export type NewsItemImpact = typeof NewsItemImpact[keyof typeof NewsItemImpact];
+
+
+export const NewsItemImpact = {
+  HIGH: 'HIGH',
+  MEDIUM: 'MEDIUM',
+  LOW: 'LOW',
+} as const;
+
+/**
+ * Recent relevant headline used for headline-risk filtering
+ */
+export interface NewsItem {
+  title: string;
+  source: string;
+  url: string;
+  publishedAt: string;
+  impact: NewsItemImpact;
+  matchedKeywords: string[];
+}
+
+export type EconomicEventImpact = typeof EconomicEventImpact[keyof typeof EconomicEventImpact];
+
+
+export const EconomicEventImpact = {
+  HIGH: 'HIGH',
+  MEDIUM: 'MEDIUM',
+  LOW: 'LOW',
+} as const;
+
+/**
+ * Scheduled economic-calendar event relevant to the selected pair
+ */
+export interface EconomicEvent {
+  title: string;
+  country: string;
+  scheduledAt: string;
+  impact: EconomicEventImpact;
+  forecast: string;
+  previous: string;
+}
+
+export type NewsRiskStatus = typeof NewsRiskStatus[keyof typeof NewsRiskStatus];
+
+
+export const NewsRiskStatus = {
+  CLEAR: 'CLEAR',
+  CAUTION: 'CAUTION',
+  BLOCKED: 'BLOCKED',
+  UNAVAILABLE: 'UNAVAILABLE',
+} as const;
+
+/**
+ * Conservative recent-headline risk state; not a market prediction
+ */
+export interface NewsRisk {
+  status: NewsRiskStatus;
+  /** Headline risk score from 0 to 100 */
+  riskScore: number;
+  headline: string;
+  source: string;
+  fetchedAt: string;
+  windowMinutes: number;
+  items: NewsItem[];
+  upcomingEvents: EconomicEvent[];
+}
+
 export type MarketSummaryBias = typeof MarketSummaryBias[keyof typeof MarketSummaryBias];
 
 
@@ -206,6 +273,7 @@ export interface MarketAnalysis {
   tradeAllowed: boolean;
   /** Risk-aware explanation of the confidence result */
   note: string;
+  newsRisk: NewsRisk;
   tradeSetup: TradeSetup;
 }
 
@@ -289,6 +357,16 @@ export const PairSummaryTrendM15 = {
   SELL: 'SELL',
 } as const;
 
+export type PairSummaryNewsStatus = typeof PairSummaryNewsStatus[keyof typeof PairSummaryNewsStatus];
+
+
+export const PairSummaryNewsStatus = {
+  CLEAR: 'CLEAR',
+  CAUTION: 'CAUTION',
+  BLOCKED: 'BLOCKED',
+  UNAVAILABLE: 'UNAVAILABLE',
+} as const;
+
 /**
  * Quick summary for a single pair
  */
@@ -299,6 +377,7 @@ export interface PairSummary {
   confidenceLevel: PairSummaryConfidenceLevel;
   trendH1: PairSummaryTrendH1;
   trendM15: PairSummaryTrendM15;
+  newsStatus: PairSummaryNewsStatus;
   timestamp: string;
 }
 

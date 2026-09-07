@@ -7,6 +7,7 @@
  */
 import type { PairSummaryBias } from './pairSummaryBias';
 import type { PairSummaryConfidenceLevel } from './pairSummaryConfidenceLevel';
+import type { PairSummaryNewsStatus } from './pairSummaryNewsStatus';
 import type { PairSummaryTrendH1 } from './pairSummaryTrendH1';
 import type { PairSummaryTrendM15 } from './pairSummaryTrendM15';
 
@@ -20,5 +21,6 @@ export interface PairSummary {
   confidenceLevel: PairSummaryConfidenceLevel;
   trendH1: PairSummaryTrendH1;
   trendM15: PairSummaryTrendM15;
+  newsStatus: PairSummaryNewsStatus;
   timestamp: Date;
 }

@@ -8,6 +8,7 @@
 import type { TrendDirection } from "./MarketStructureService.js";
 import type { MarketState } from "./MarketStructureService.js";
 import type { ChecklistItem, ConfidenceLevel } from "./EntryConfidenceService.js";
+import type { NewsRisk } from "./NewsService.js";
 
 export interface MarketSummary {
   bias: TrendDirection;
@@ -26,6 +27,7 @@ function buildReason(
   checklist: ChecklistItem[],
   h1State: MarketState,
   m15State: MarketState,
+  newsRisk: NewsRisk,
 ): string {
   const lines: string[] = [];
 
@@ -68,6 +70,16 @@ function buildReason(
     lines.push(`Risk Reward belum memenuhi syarat. Pertimbangkan ulang level entry.`);
   }
 
+  if (newsRisk.status === "BLOCKED") {
+    lines.push(`News filter: BLOCKED — ${newsRisk.headline}`);
+  } else if (newsRisk.status === "CAUTION") {
+    lines.push(`News filter: CAUTION — ${newsRisk.headline}`);
+  } else if (newsRisk.status === "UNAVAILABLE") {
+    lines.push("News filter: data berita tidak tersedia, sehingga entry diblokir sementara.");
+  } else {
+    lines.push("News filter: tidak ada headline berdampak tinggi dalam jendela risiko.");
+  }
+
   return lines.join(" ");
 }
 
@@ -90,6 +102,16 @@ export function generateSummary(
   checklist: ChecklistItem[],
   h1State: MarketState = "TRENDING",
   m15State: MarketState = "TRENDING",
+  newsRisk: NewsRisk = {
+    status: "CLEAR",
+    riskScore: 0,
+    headline: "Tidak ada headline relevan terbaru.",
+    source: "internal",
+    fetchedAt: new Date(0).toISOString(),
+    windowMinutes: 180,
+    items: [],
+    upcomingEvents: [],
+  },
 ): MarketSummary {
   // Bias follows H1 direction — H1 determines the trend
   const bias: TrendDirection = h1Direction;
@@ -98,6 +120,6 @@ export function generateSummary(
     bias,
     confidence,
     confidenceLevel,
-    reason: buildReason(pair, h1Direction, m15Direction, checklist, h1State, m15State),
+    reason: buildReason(pair, h1Direction, m15Direction, checklist, h1State, m15State, newsRisk),
   };
 }
