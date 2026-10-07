@@ -43,10 +43,10 @@ export function SummaryCard({ summary, index }: SummaryCardProps) {
           </div>
 
           <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Confidence</span>
+              <span className="text-sm text-muted-foreground">Confluence score</span>
             <div className="flex items-center gap-2">
               <span className="text-xl font-bold text-foreground" data-testid="text-summary-confidence">
-                {summary.confidence}%
+                {summary.confidence}/100
               </span>
               <span className={`text-sm px-2 py-1 rounded ${bgColor} ${textColor}`} data-testid="text-summary-level">
                 {summary.confidenceLevel}

@@ -195,10 +195,10 @@ components:
           enum: [BUY, SELL]
         status:
           type: string
-          enum: [READY, WAIT, NO_TRADE]
+          enum: [READY, WAIT, CAUTION]
         statusReason:
           type: string
-          description: Why the setup is ready or why the trader should wait
+          description: Advisory readiness/risk state; it never blocks a setup
         currentPrice:
           type: number
           description: Last closed candle price
@@ -330,10 +330,10 @@ components:
       properties:
         status:
           type: string
-          enum: [CLEAR, CAUTION, BLOCKED, UNAVAILABLE]
+          enum: [CLEAR, CAUTION, HIGH_RISK, UNAVAILABLE]
         riskScore:
           type: number
-          description: Headline risk score from 0 to 100
+          description: Advisory headline risk score from 0 to 100; never a trade gate
         headline:
           type: string
         source:
@@ -363,14 +363,14 @@ components:
 
     MarketSummary:
       type: object
-      description: Overall trading bias summary with reasoning
+      description: Overall trading bias summary with a heuristic confluence score
       properties:
         bias:
           type: string
           enum: [BUY, SELL]
         confidence:
           type: number
-          description: Confidence percentage 0-100
+          description: Heuristic confluence score 0-100; not a win probability
         confidenceLevel:
           type: string
           enum: [High, Medium, Low]
@@ -400,7 +400,7 @@ components:
           $ref: "#/components/schemas/TrendData"
         confidence:
           type: number
-          description: Overall entry confidence 0-100
+          description: Heuristic confluence score 0-100; not a win probability
         confidenceLevel:
           type: string
           enum: [High, Medium, Low]
@@ -415,7 +415,8 @@ components:
           description: True only when H1 and M15 are both trending in the same direction
         tradeAllowed:
           type: boolean
-          description: False when conditions are not safe for a directional entry
+          deprecated: true
+          description: Legacy compatibility field; always true because analysis never hard-blocks setups. Use note, checklist, score, and tradeSetup.status for advisory context.
         note:
           type: string
           description: Risk-aware explanation of the confidence result
@@ -495,7 +496,7 @@ components:
           enum: [BUY, SELL]
         newsStatus:
           type: string
-          enum: [CLEAR, CAUTION, BLOCKED, UNAVAILABLE]
+          enum: [CLEAR, CAUTION, HIGH_RISK, UNAVAILABLE]
         timestamp:
           type: string
           format: date-time

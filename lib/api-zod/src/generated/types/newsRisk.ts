@@ -14,7 +14,7 @@ import type { NewsRiskStatus } from './newsRiskStatus';
  */
 export interface NewsRisk {
   status: NewsRiskStatus;
-  /** Headline risk score from 0 to 100 */
+  /** Advisory headline risk score from 0 to 100; never a trade gate */
   riskScore: number;
   headline: string;
   source: string;

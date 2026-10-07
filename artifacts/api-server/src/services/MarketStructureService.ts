@@ -243,7 +243,7 @@ function buildExplanation(args: {
   } = args;
 
   if (marketState === "RANGING") {
-    return `Pasar RANGING, bukan tren bersih. Struktur ${structure}; ADX ${adx.toFixed(0)}, DI+ ${diPlus.toFixed(0)}, DI- ${diMinus.toFixed(0)}, RSI ${rsi.toFixed(0)}. Hindari entry sampai breakout dan retest terkonfirmasi.`;
+    return `Pasar RANGING, bukan tren bersih. Struktur ${structure}; ADX ${adx.toFixed(0)}, DI+ ${diPlus.toFixed(0)}, DI- ${diMinus.toFixed(0)}, RSI ${rsi.toFixed(0)}. State ini menurunkan skor; konfirmasi breakout dan retest dapat memperkuat sinyal.`;
   }
   if (marketState === "TRANSITION") {
     return `Pasar TRANSITION: struktur ${structureDirection ?? "belum jelas"}, EMA ${emaDirection ?? "netral"}, DMI ${dmiDirection ?? "netral"}. RSI ${rsi.toFixed(0)}, ADX ${adx.toFixed(0)}. Jangan mengejar harga; tunggu struktur, EMA, dan DMI kembali searah.`;

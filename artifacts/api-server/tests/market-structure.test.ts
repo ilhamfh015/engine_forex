@@ -125,8 +125,8 @@ function makeStrongTrend(): TrendData {
 function makeNewsRisk(status: NewsRisk["status"]): NewsRisk {
   return {
     status,
-    riskScore: status === "BLOCKED" ? 100 : status === "CLEAR" ? 0 : 55,
-    headline: status === "BLOCKED" ? "Central bank rate decision released" : "No high-impact headline",
+    riskScore: status === "HIGH_RISK" ? 85 : status === "CLEAR" ? 0 : status === "CAUTION" ? 55 : 60,
+    headline: status === "HIGH_RISK" ? "Central bank rate decision released" : "No high-impact headline",
     source: "test",
     fetchedAt: new Date(Date.UTC(2026, 0, 6)).toISOString(),
     windowMinutes: 180,
@@ -135,13 +135,19 @@ function makeNewsRisk(status: NewsRisk["status"]): NewsRisk {
   };
 }
 
-test("high-impact news blocks an otherwise technically aligned entry", () => {
+test("high-impact news lowers the score but never hard-blocks an otherwise aligned setup", () => {
   const trend = makeStrongTrend();
   const candles = makeSeries("BUY");
   const clear = calculateConfidence("EURUSD", trend, trend, candles, 2, makeNewsRisk("CLEAR"));
-  const blocked = calculateConfidence("EURUSD", trend, trend, candles, 2, makeNewsRisk("BLOCKED"));
+  const highRisk = calculateConfidence("EURUSD", trend, trend, candles, 2, makeNewsRisk("HIGH_RISK"));
+  const unavailable = calculateConfidence("EURUSD", trend, trend, candles, 2, makeNewsRisk("UNAVAILABLE"));
 
-  assert.ok(blocked.score < clear.score);
-  assert.equal(blocked.tradeAllowed, false);
-  assert.match(blocked.note, /berita berdampak tinggi/i);
+  assert.ok(highRisk.score < clear.score);
+  assert.ok(unavailable.score < clear.score);
+  assert.equal(highRisk.tradeAllowed, true);
+  assert.equal(unavailable.tradeAllowed, true);
+  assert.match(highRisk.note, /risiko berita tinggi/i);
+  assert.match(highRisk.note, /tidak memblokir setup/i);
+  assert.match(highRisk.note, /bukan probabilitas menang/i);
+  assert.ok(highRisk.score >= 0 && highRisk.score <= 100);
 });

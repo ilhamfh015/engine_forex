@@ -6,8 +6,8 @@
  *   - stop beyond the latest confirmed structural swing plus ATR buffer
  *   - TP1/TP2/TP3 at 1R/2R/3R, capped by the next opposing swing when useful
  *
- * The setup is marked WAIT when price is not in the zone. It is also marked
- * NO_TRADE when H1/M15 are not aligned or either timeframe is not trending.
+ * Readiness labels are advisory only: no market or news condition suppresses
+ * the setup or blocks the response.
  */
 
 import type { Candle } from "./TwelveDataService.js";
@@ -20,8 +20,10 @@ import {
   PRICE_DECIMALS,
 } from "./TwelveDataService.js";
 import type { MarketState, TrendDirection } from "./MarketStructureService.js";
+import type { ChecklistItem } from "./EntryConfidenceService.js";
+import type { NewsRiskStatus } from "./NewsService.js";
 
-export type TradeSetupStatus = "READY" | "WAIT" | "NO_TRADE";
+export type TradeSetupStatus = "READY" | "WAIT" | "CAUTION";
 
 export interface TradeSetup {
   direction: TrendDirection;
@@ -39,6 +41,67 @@ export interface TradeSetup {
   riskRewardRatio: number;
   riskPoints: number;
   pipSize: number;
+}
+
+export interface SetupAdvisory {
+  score: number;
+  timeframeAligned: boolean;
+  checklist: ChecklistItem[];
+  newsStatus: NewsRiskStatus;
+}
+
+/**
+ * Keep the plan visible in every market state. Statuses describe risk/readiness
+ * for the user; they are not execution gates.
+ */
+export function applySetupAdvisory(setup: TradeSetup, advisory: SetupAdvisory): TradeSetup {
+  const check = (label: string) => advisory.checklist.find((item) => item.label === label)?.passed ?? false;
+  const inZone = setup.currentPrice >= setup.entryZoneMin && setup.currentPrice <= setup.entryZoneMax;
+  const confirmation = check("Confirmation Candle");
+  const rr = check("Risk Reward Bagus");
+  const coreChecks = [
+    advisory.timeframeAligned,
+    check("Struktur HH-HL/LH-LL"),
+    check("DMI + ADX Mendukung"),
+    rr,
+  ];
+
+  const status: TradeSetupStatus = !inZone || !confirmation
+    ? "WAIT"
+    : coreChecks.some((passed) => !passed) || advisory.newsStatus !== "CLEAR" || advisory.score < 70
+      ? "CAUTION"
+      : "READY";
+
+  const warnings = [
+    !advisory.timeframeAligned ? "H1/M15 belum searah dan sama-sama trending" : "",
+    !check("Struktur HH-HL/LH-LL") ? "struktur swing belum mendukung penuh" : "",
+    !check("DMI + ADX Mendukung") ? "DMI/ADX belum mendukung penuh" : "",
+    !confirmation ? "tunggu candle konfirmasi yang lebih jelas" : "",
+    !rr ? "RR rencana di bawah 1:1.5" : "",
+    advisory.newsStatus === "HIGH_RISK" ? "risiko berita tinggi mengurangi skor, bukan memblokir setup" : "",
+    advisory.newsStatus === "CAUTION" ? "ada risiko berita sedang" : "",
+    advisory.newsStatus === "UNAVAILABLE" ? "data berita tidak lengkap; skor disesuaikan" : "",
+    advisory.score < 70 ? `skor konfluensi ${advisory.score}/100` : "",
+  ].filter(Boolean);
+
+  const statusReason = status === "READY"
+    ? "Konfluensi dan konfirmasi memadai. Ini tetap rekomendasi, bukan eksekusi otomatis."
+    : [
+        !inZone ? "Harga di luar zona entry ideal" : "",
+        warnings.join("; "),
+        "Peringatan ini tidak memblokir setup.",
+      ].filter(Boolean).join(". ");
+
+  return {
+    ...setup,
+    status,
+    statusReason,
+    entryZoneLabel: status === "READY"
+      ? "READY — RENCANA TERKONFIRMASI"
+      : status === "CAUTION"
+        ? "CAUTION — REVIEW RISIKO"
+        : "WAIT — TUNGGU ZONA/KONFIRMASI",
+  };
 }
 
 export function buildTradeSetup(
@@ -113,11 +176,11 @@ export function buildTradeSetup(
   let statusReason: string;
 
   if (!aligned) {
-    status = "NO_TRADE";
-    statusReason = "H1 dan M15 belum sama-sama trending dan searah. Tunggu konfluensi sebelum entry.";
+    status = "CAUTION";
+    statusReason = "H1 dan M15 belum sama-sama trending dan searah. Rencana tetap ditampilkan dengan skor/peringatan.";
   } else if (inZone) {
     status = "READY";
-    statusReason = "Harga berada di zona value. Tetap tunggu candle rejection/confirmation sebelum eksekusi.";
+    statusReason = "Harga berada di zona value. Periksa konfirmasi candle serta semua peringatan.";
   } else {
     status = "WAIT";
     statusReason = direction === "BUY"
@@ -133,10 +196,10 @@ export function buildTradeSetup(
     entryZoneMin,
     entryZoneMax,
     entryPrice,
-    entryZoneLabel: status === "NO_TRADE"
-      ? "NO TRADE — TUNGGU KONFLUENSI"
+    entryZoneLabel: status === "CAUTION"
+      ? "CAUTION — REVIEW KONFLUENSI"
       : status === "READY"
-        ? "READY — KONFIRMASI CANDLE"
+        ? "READY — REVIEW KONFIRMASI"
         : direction === "BUY"
           ? "WAIT — TUNGGU PULLBACK"
           : "WAIT — TUNGGU RALLY",

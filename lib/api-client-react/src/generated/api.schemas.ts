@@ -98,7 +98,7 @@ export type TradeSetupStatus = typeof TradeSetupStatus[keyof typeof TradeSetupSt
 export const TradeSetupStatus = {
   READY: 'READY',
   WAIT: 'WAIT',
-  NO_TRADE: 'NO_TRADE',
+  CAUTION: 'CAUTION',
 } as const;
 
 /**
@@ -107,7 +107,7 @@ export const TradeSetupStatus = {
 export interface TradeSetup {
   direction: TradeSetupDirection;
   status: TradeSetupStatus;
-  /** Why the setup is ready or why the trader should wait */
+  /** Advisory readiness/risk state; it never blocks a setup */
   statusReason: string;
   /** Last closed candle price */
   currentPrice: number;
@@ -195,7 +195,7 @@ export type NewsRiskStatus = typeof NewsRiskStatus[keyof typeof NewsRiskStatus];
 export const NewsRiskStatus = {
   CLEAR: 'CLEAR',
   CAUTION: 'CAUTION',
-  BLOCKED: 'BLOCKED',
+  HIGH_RISK: 'HIGH_RISK',
   UNAVAILABLE: 'UNAVAILABLE',
 } as const;
 
@@ -204,7 +204,7 @@ export const NewsRiskStatus = {
  */
 export interface NewsRisk {
   status: NewsRiskStatus;
-  /** Headline risk score from 0 to 100 */
+  /** Advisory headline risk score from 0 to 100; never a trade gate */
   riskScore: number;
   headline: string;
   source: string;
@@ -232,11 +232,11 @@ export const MarketSummaryConfidenceLevel = {
 } as const;
 
 /**
- * Overall trading bias summary with reasoning
+ * Overall trading bias summary with a heuristic confluence score
  */
 export interface MarketSummary {
   bias: MarketSummaryBias;
-  /** Confidence percentage 0-100 */
+  /** Heuristic confluence score 0-100; not a win probability */
   confidence: number;
   confidenceLevel: MarketSummaryConfidenceLevel;
   /** Multi-line narrative explaining the bias */
@@ -262,14 +262,17 @@ export interface MarketAnalysis {
   timestamp: string;
   trendH1: TrendData;
   trendM15: TrendData;
-  /** Overall entry confidence 0-100 */
+  /** Heuristic confluence score 0-100; not a win probability */
   confidence: number;
   confidenceLevel: MarketAnalysisConfidenceLevel;
   checklist: ChecklistItem[];
   summary: MarketSummary;
   /** True only when H1 and M15 are both trending in the same direction */
   timeframeAligned: boolean;
-  /** False when conditions are not safe for a directional entry */
+  /**
+     * Legacy compatibility field; always true because analysis never hard-blocks setups. Use note, checklist, score, and tradeSetup.status for advisory context.
+     * @deprecated
+     */
   tradeAllowed: boolean;
   /** Risk-aware explanation of the confidence result */
   note: string;
@@ -363,7 +366,7 @@ export type PairSummaryNewsStatus = typeof PairSummaryNewsStatus[keyof typeof Pa
 export const PairSummaryNewsStatus = {
   CLEAR: 'CLEAR',
   CAUTION: 'CAUTION',
-  BLOCKED: 'BLOCKED',
+  HIGH_RISK: 'HIGH_RISK',
   UNAVAILABLE: 'UNAVAILABLE',
 } as const;
 

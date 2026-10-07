@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildTradeSetup } from "./TradeSetupService.js";
+import { applySetupAdvisory, buildTradeSetup } from "./TradeSetupService.js";
 import {
   calcDMI,
   calcEMA,
@@ -143,4 +143,35 @@ test("trade setup levels stay finite and ordered in the trade direction", () => 
       assert.ok(setup.tp1 >= setup.tp2 && setup.tp2 >= setup.tp3);
     }
   }
+});
+
+test("misaligned trends and high news risk produce a caution, not NO_TRADE", () => {
+  const base = buildTradeSetup(
+    "EURUSD",
+    "BUY",
+    makeCandles(BULLISH_CLOSES),
+    "RANGING",
+    "TRENDING",
+    "SELL",
+  );
+  const inZone = {
+    ...base,
+    currentPrice: (base.entryZoneMin + base.entryZoneMax) / 2,
+  };
+  const advisory = applySetupAdvisory(inZone, {
+    score: 35,
+    timeframeAligned: false,
+    checklist: [
+      { label: "Struktur HH-HL/LH-LL", passed: false, weight: 0.15 },
+      { label: "DMI + ADX Mendukung", passed: false, weight: 0.15 },
+      { label: "Confirmation Candle", passed: true, weight: 0.13 },
+      { label: "Risk Reward Bagus", passed: true, weight: 0.05 },
+    ],
+    newsStatus: "HIGH_RISK",
+  });
+
+  assert.equal(advisory.status, "CAUTION");
+  assert.match(advisory.entryZoneLabel, /CAUTION/);
+  assert.match(advisory.statusReason, /tidak memblokir setup/i);
+  assert.ok(Number.isFinite(advisory.entryPrice));
 });

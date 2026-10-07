@@ -47,7 +47,7 @@ export function PairsOverview({ pairs, selectedPair, onPairSelect }: PairsOvervi
                   {pair.bias}
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span className="font-mono">{pair.confidence}%</span>
+                  <span className="font-mono">{pair.confidence}/100</span>
                   <span className={`px-2 py-0.5 rounded ${bgColor} ${textColor}`}>
                     {pair.confidenceLevel}
                   </span>
@@ -65,13 +65,13 @@ export function PairsOverview({ pairs, selectedPair, onPairSelect }: PairsOvervi
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">News risk</span>
                   <span className={
-                    pair.newsStatus === 'BLOCKED'
+                    pair.newsStatus === 'HIGH_RISK'
                       ? 'font-semibold text-destructive'
                       : pair.newsStatus === 'CAUTION' || pair.newsStatus === 'UNAVAILABLE'
                         ? 'font-semibold text-yellow-500'
                         : 'font-semibold text-primary'
                   }>
-                    {pair.newsStatus}
+                    {pair.newsStatus === 'HIGH_RISK' ? 'HIGH RISK' : pair.newsStatus}
                   </span>
                 </div>
               </div>

@@ -60,7 +60,7 @@ export const GetAnalysisResponse = zod.object({
   "marketState": zod.enum(['TRENDING', 'TRANSITION', 'RANGING']).describe('Whether the timeframe is trending, transitioning, or ranging'),
   "candleTime": zod.string().describe('Timestamp of the last closed candle used')
 }).describe('Trend direction with market structure explanation'),
-  "confidence": zod.number().describe('Overall entry confidence 0-100'),
+  "confidence": zod.number().describe('Heuristic confluence score 0-100; not a win probability'),
   "confidenceLevel": zod.enum(['High', 'Medium', 'Low']),
   "checklist": zod.array(zod.object({
   "label": zod.string().describe('Human-readable label of the condition'),
@@ -69,16 +69,16 @@ export const GetAnalysisResponse = zod.object({
 }).describe('Single entry analysis condition')),
   "summary": zod.object({
   "bias": zod.enum(['BUY', 'SELL']),
-  "confidence": zod.number().describe('Confidence percentage 0-100'),
+  "confidence": zod.number().describe('Heuristic confluence score 0-100; not a win probability'),
   "confidenceLevel": zod.enum(['High', 'Medium', 'Low']),
   "reason": zod.string().describe('Multi-line narrative explaining the bias')
-}).describe('Overall trading bias summary with reasoning'),
+}).describe('Overall trading bias summary with a heuristic confluence score'),
   "timeframeAligned": zod.boolean().describe('True only when H1 and M15 are both trending in the same direction'),
-  "tradeAllowed": zod.boolean().describe('False when conditions are not safe for a directional entry'),
+  "tradeAllowed": zod.boolean().describe('Legacy compatibility field; always true because analysis never hard-blocks setups. Use note, checklist, score, and tradeSetup.status for advisory context.'),
   "note": zod.string().describe('Risk-aware explanation of the confidence result'),
   "newsRisk": zod.object({
-  "status": zod.enum(['CLEAR', 'CAUTION', 'BLOCKED', 'UNAVAILABLE']),
-  "riskScore": zod.number().describe('Headline risk score from 0 to 100'),
+  "status": zod.enum(['CLEAR', 'CAUTION', 'HIGH_RISK', 'UNAVAILABLE']),
+  "riskScore": zod.number().describe('Advisory headline risk score from 0 to 100; never a trade gate'),
   "headline": zod.string(),
   "source": zod.string(),
   "fetchedAt": zod.coerce.date(),
@@ -102,8 +102,8 @@ export const GetAnalysisResponse = zod.object({
 }).describe('Conservative recent-headline risk state; not a market prediction'),
   "tradeSetup": zod.object({
   "direction": zod.enum(['BUY', 'SELL']),
-  "status": zod.enum(['READY', 'WAIT', 'NO_TRADE']),
-  "statusReason": zod.string().describe('Why the setup is ready or why the trader should wait'),
+  "status": zod.enum(['READY', 'WAIT', 'CAUTION']),
+  "statusReason": zod.string().describe('Advisory readiness\/risk state; it never blocks a setup'),
   "currentPrice": zod.number().describe('Last closed candle price'),
   "entryZoneMin": zod.number().describe('Lower bound of the ideal entry zone'),
   "entryZoneMax": zod.number().describe('Upper bound of the ideal entry zone'),
@@ -152,7 +152,7 @@ export const GetAllPairsSummaryResponseItem = zod.object({
   "confidenceLevel": zod.enum(['High', 'Medium', 'Low']),
   "trendH1": zod.enum(['BUY', 'SELL']),
   "trendM15": zod.enum(['BUY', 'SELL']),
-  "newsStatus": zod.enum(['CLEAR', 'CAUTION', 'BLOCKED', 'UNAVAILABLE']),
+  "newsStatus": zod.enum(['CLEAR', 'CAUTION', 'HIGH_RISK', 'UNAVAILABLE']),
   "timestamp": zod.coerce.date()
 }).describe('Quick summary for a single pair')
 export const GetAllPairsSummaryResponse = zod.array(GetAllPairsSummaryResponseItem)

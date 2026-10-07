@@ -14,7 +14,7 @@ import type { TradeSetupStatus } from './tradeSetupStatus';
 export interface TradeSetup {
   direction: TradeSetupDirection;
   status: TradeSetupStatus;
-  /** Why the setup is ready or why the trader should wait */
+  /** Advisory readiness/risk state; it never blocks a setup */
   statusReason: string;
   /** Last closed candle price */
   currentPrice: number;

@@ -13,7 +13,7 @@ import {
 import { analyzeTrendFromCandles, SUPPORTED_PAIRS } from "../services/MarketStructureService.js";
 import { calculateConfidence } from "../services/EntryConfidenceService.js";
 import { generateSummary } from "../services/SummaryService.js";
-import { buildTradeSetup } from "../services/TradeSetupService.js";
+import { applySetupAdvisory, buildTradeSetup } from "../services/TradeSetupService.js";
 import { getCandles, getClosedCandles } from "../services/TwelveDataService.js";
 import { getNewsRisk } from "../services/NewsService.js";
 import { db, marketAnalysisTable } from "@workspace/db";
@@ -54,7 +54,7 @@ router.get("/analysis/:pair", async (req: Request, res: Response) => {
 
     // 3. Build trade setup before confidence so the score uses the actual
     // planned entry midpoint → TP2 RR rather than a separate approximation.
-    const tradeSetup = buildTradeSetup(
+    const initialTradeSetup = buildTradeSetup(
       pair,
       trendH1.direction,
       closedM15,
@@ -65,14 +65,21 @@ router.get("/analysis/:pair", async (req: Request, res: Response) => {
 
     // 4. Calculate entry confidence using the actual setup, both trend objects,
     // and the current headline-risk state.
-    const { score, level, checklist, timeframeAligned, tradeAllowed, note } = calculateConfidence(
+    const confidence = calculateConfidence(
       pair,
       trendH1,
       trendM15,
       closedM15,
-      tradeSetup.riskRewardRatio,
+      initialTradeSetup.riskRewardRatio,
       newsRisk,
     );
+    const { score, level, checklist, timeframeAligned, tradeAllowed, note } = confidence;
+    const tradeSetup = applySetupAdvisory(initialTradeSetup, {
+      score,
+      timeframeAligned,
+      checklist,
+      newsStatus: newsRisk.status,
+    });
 
     // 5. Generate market summary
     const summary = generateSummary(

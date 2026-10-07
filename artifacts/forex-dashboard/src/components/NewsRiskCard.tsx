@@ -10,7 +10,7 @@ interface NewsRiskCardProps {
 const statusCopy: Record<NewsRisk['status'], { label: string; color: string; panel: string }> = {
   CLEAR: { label: 'CLEAR', color: 'text-primary', panel: 'border-primary/25 bg-primary/5' },
   CAUTION: { label: 'CAUTION', color: 'text-yellow-500', panel: 'border-yellow-500/25 bg-yellow-500/5' },
-  BLOCKED: { label: 'BLOCKED', color: 'text-destructive', panel: 'border-destructive/25 bg-destructive/5' },
+  HIGH_RISK: { label: 'HIGH RISK', color: 'text-destructive', panel: 'border-destructive/25 bg-destructive/5' },
   UNAVAILABLE: { label: 'UNAVAILABLE', color: 'text-yellow-500', panel: 'border-yellow-500/25 bg-yellow-500/5' },
 };
 
@@ -31,8 +31,8 @@ function formatJakarta(dateString: string) {
 export function NewsRiskCard({ risk, index }: NewsRiskCardProps) {
   const safeRisk = {
     status: risk?.status ?? 'UNAVAILABLE' as const,
-    riskScore: risk?.riskScore ?? 100,
-    headline: risk?.headline ?? 'Data berita belum tersedia. Entry diblokir sampai validasi selesai.',
+    riskScore: risk?.riskScore ?? 60,
+    headline: risk?.headline ?? 'Data berita belum tersedia. Skor disesuaikan; setup tetap ditampilkan.',
     source: risk?.source ?? 'API',
     fetchedAt: risk?.fetchedAt ?? new Date(0).toISOString(),
     windowMinutes: risk?.windowMinutes ?? 180,
@@ -55,7 +55,7 @@ export function NewsRiskCard({ risk, index }: NewsRiskCardProps) {
           <div>
             <div className="flex items-center gap-2">
               <Newspaper className="h-5 w-5 text-muted-foreground" />
-              <h2 className="text-lg font-semibold text-foreground">News Risk Filter</h2>
+              <h2 className="text-lg font-semibold text-foreground">News Risk Advisory</h2>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
               Headline relevan dalam {safeRisk.windowMinutes} menit terakhir — bukan prediksi harga.
@@ -107,7 +107,7 @@ export function NewsRiskCard({ risk, index }: NewsRiskCardProps) {
               <span className="text-xs text-muted-foreground">Asia/Jakarta</span>
             </div>
             <div className="space-y-2">
-              {safeRisk.upcomingEvents.slice(0, 4).map((event) => (
+              {safeRisk.upcomingEvents.map((event) => (
                 <div
                   key={`${event.country}-${event.title}-${event.scheduledAt}`}
                   className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-card-border bg-card/40 p-3"

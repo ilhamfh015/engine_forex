@@ -12,5 +12,5 @@ export type TradeSetupStatus = typeof TradeSetupStatus[keyof typeof TradeSetupSt
 export const TradeSetupStatus = {
   READY: 'READY',
   WAIT: 'WAIT',
-  NO_TRADE: 'NO_TRADE',
+  CAUTION: 'CAUTION',
 } as const;

@@ -15,11 +15,11 @@ function formatPrice(value: number, pipSize: number) {
 export function TradeSetupCard({ setup, index }: TradeSetupCardProps) {
   const isBuy = setup.direction === 'BUY';
   const isReady = setup.status === 'READY';
-  const isNoTrade = setup.status === 'NO_TRADE';
+  const isCaution = setup.status === 'CAUTION';
   const accent = isBuy ? 'text-primary' : 'text-destructive';
   const border = isBuy ? 'border-primary/30' : 'border-destructive/30';
   const panel = isBuy ? 'bg-primary/5' : 'bg-destructive/5';
-  const Icon = isNoTrade ? AlertTriangle : isReady ? ShieldCheck : Crosshair;
+  const Icon = isCaution ? AlertTriangle : isReady ? ShieldCheck : Crosshair;
 
   return (
     <motion.section
@@ -41,8 +41,8 @@ export function TradeSetupCard({ setup, index }: TradeSetupCardProps) {
             </p>
           </div>
           <div className={`flex items-center gap-2 rounded-full border px-3 py-1.5 ${border} ${panel}`}>
-            <Icon className={`h-4 w-4 ${isNoTrade ? 'text-yellow-500' : accent}`} />
-            <span className={`text-xs font-bold ${isNoTrade ? 'text-yellow-500' : accent}`}>
+            <Icon className={`h-4 w-4 ${isCaution ? 'text-yellow-500' : accent}`} />
+            <span className={`text-xs font-bold ${isCaution ? 'text-yellow-500' : accent}`}>
               {setup.entryZoneLabel}
             </span>
           </div>

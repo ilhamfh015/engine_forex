@@ -22,14 +22,17 @@ export interface MarketAnalysis {
   timestamp: Date;
   trendH1: TrendData;
   trendM15: TrendData;
-  /** Overall entry confidence 0-100 */
+  /** Heuristic confluence score 0-100; not a win probability */
   confidence: number;
   confidenceLevel: MarketAnalysisConfidenceLevel;
   checklist: ChecklistItem[];
   summary: MarketSummary;
   /** True only when H1 and M15 are both trending in the same direction */
   timeframeAligned: boolean;
-  /** False when conditions are not safe for a directional entry */
+  /**
+     * Legacy compatibility field; always true because analysis never hard-blocks setups. Use note, checklist, score, and tradeSetup.status for advisory context.
+     * @deprecated
+     */
   tradeAllowed: boolean;
   /** Risk-aware explanation of the confidence result */
   note: string;

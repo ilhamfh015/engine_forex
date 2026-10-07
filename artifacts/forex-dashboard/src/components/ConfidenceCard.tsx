@@ -38,7 +38,8 @@ export function ConfidenceCard({ confidence, confidenceLevel, checklist, index }
       data-testid="card-confidence"
     >
       <div className="p-6">
-        <h3 className="text-lg font-semibold mb-6 text-foreground">Entry Confidence</h3>
+        <h3 className="text-lg font-semibold mb-1 text-foreground">Entry Confluence Score</h3>
+        <p className="mb-5 text-xs text-muted-foreground">Skor heuristik 0–100, bukan probabilitas menang.</p>
         
         <div className="flex flex-col items-center mb-8">
           <div className="relative w-48 h-48 mb-4">
@@ -68,13 +69,13 @@ export function ConfidenceCard({ confidence, confidenceLevel, checklist, index }
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <span className={`text-5xl font-bold ${getConfidenceColor()}`} data-testid="text-confidence-percent">
-                {confidence}%
+                {confidence}/100
               </span>
             </div>
           </div>
           <div className={`px-4 py-2 rounded-full ${getBgColor()} border ${getBorderColor()}`}>
             <span className={`text-sm font-semibold ${getConfidenceColor()}`} data-testid="text-confidence-level">
-              {confidenceLevel} Confidence
+              {confidenceLevel} confluence
             </span>
           </div>
         </div>

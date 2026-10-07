@@ -8,7 +8,7 @@
 
 import { logger } from "../lib/logger.js";
 
-export type NewsRiskStatus = "CLEAR" | "CAUTION" | "BLOCKED" | "UNAVAILABLE";
+export type NewsRiskStatus = "CLEAR" | "CAUTION" | "HIGH_RISK" | "UNAVAILABLE";
 export type NewsImpact = "HIGH" | "MEDIUM" | "LOW";
 
 export interface NewsItem {
@@ -125,7 +125,7 @@ function classifyImpact(title: string, keywords: string[]): { impact: NewsImpact
   const explicitEvent = /(?:data|report|decision|announcement|surprise|released|release|meeting|minutes|official|hike|cut|emergency|war|invasion|sanction|tariff|default)/.test(normalized);
 
   // A market-analysis article mentioning inflation is not itself a high-impact
-  // event. Require release/decision/shock language before blocking entries.
+  // event. Require release/decision/shock language before assigning high risk.
   if (highMatches.length > 0 && explicitEvent) {
     return { impact: "HIGH", matchedKeywords: [...new Set([...matchedKeywords, ...highMatches])] };
   }
@@ -138,7 +138,7 @@ function classifyImpact(title: string, keywords: string[]): { impact: NewsImpact
 function emptyRisk(status: NewsRiskStatus, headline: string): NewsRisk {
   return {
     status,
-    riskScore: status === "BLOCKED" ? 100 : status === "CAUTION" ? 55 : 0,
+    riskScore: status === "HIGH_RISK" ? 85 : status === "CAUTION" ? 55 : status === "UNAVAILABLE" ? 60 : 0,
     headline,
     source: "Google News RSS",
     fetchedAt: new Date().toISOString(),
@@ -222,21 +222,47 @@ async function fetchNews(pair: string): Promise<NewsRisk> {
   url.searchParams.set("gl", "US");
   url.searchParams.set("ceid", "US:en");
 
-  const [rssResponse, calendar] = await Promise.all([
+  const [rssResult, calendarResult] = await Promise.allSettled([
     fetch(url, {
       headers: { "user-agent": "ForexMarketStructureAnalyzer/1.0" },
       signal: AbortSignal.timeout(8_000),
+    }).then(async (response) => {
+      if (!response.ok) throw new Error(`News provider HTTP ${response.status}`);
+      return parseNews(await response.text(), profile).slice(0, 8);
     }),
     getEconomicCalendar(),
   ]);
-  if (!rssResponse.ok) throw new Error(`News provider HTTP ${rssResponse.status}`);
+  const rssAvailable = rssResult.status === "fulfilled";
+  const calendarAvailable = calendarResult.status === "fulfilled";
+  if (!rssAvailable) logger.warn({ pair, error: rssResult.reason }, "Headline source unavailable");
+  if (!calendarAvailable) logger.warn({ pair, error: calendarResult.reason }, "Economic calendar unavailable");
 
-  const items = parseNews(await rssResponse.text(), profile).slice(0, 8);
-  const now = Date.now();
-  const recentItems = items.filter((item) => {
-    const ageMinutes = (now - Date.parse(item.publishedAt)) / 60_000;
-    return ageMinutes >= -15 && ageMinutes <= NEWS_WINDOW_MINUTES;
-  });
+  return buildNewsRiskFromSources(
+    pair,
+    rssAvailable ? rssResult.value : [],
+    calendarAvailable ? calendarResult.value : [],
+    { rss: rssAvailable, calendar: calendarAvailable },
+  );
+}
+
+/**
+ * Combines independent providers so one outage does not discard usable data
+ * from the other. Status and riskScore are advisory only, never a trade gate.
+ */
+export function buildNewsRiskFromSources(
+  pair: string,
+  headlineItems: NewsItem[],
+  calendar: EconomicEvent[],
+  availability: { rss: boolean; calendar: boolean },
+  now = Date.now(),
+): NewsRisk {
+  const recentItems = headlineItems
+    .filter((item) => {
+      const ageMinutes = (now - Date.parse(item.publishedAt)) / 60_000;
+      return ageMinutes >= -15 && ageMinutes <= NEWS_WINDOW_MINUTES;
+    })
+    .sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt))
+    .slice(0, 8);
   const currencies = PAIR_CURRENCIES[pair] ?? [];
   const upcomingEvents = calendar
     .filter((event) => currencies.includes(event.country))
@@ -244,8 +270,13 @@ async function fetchNews(pair: string): Promise<NewsRisk> {
       const minutesUntil = (Date.parse(event.scheduledAt) - now) / 60_000;
       return minutesUntil >= -30 && minutesUntil <= CALENDAR_WINDOW_MINUTES;
     })
-    .sort((a, b) => Date.parse(a.scheduledAt) - Date.parse(b.scheduledAt))
-    .slice(0, 8);
+    .sort((a, b) => Date.parse(a.scheduledAt) - Date.parse(b.scheduledAt));
+  const sourceNames = [
+    availability.rss ? "Google News RSS" : "",
+    availability.calendar ? "Forex Factory Calendar" : "",
+  ].filter(Boolean);
+  const source = sourceNames.length > 0 ? sourceNames.join(" + ") : "News providers";
+  const partialData = !availability.rss || !availability.calendar;
   const high = recentItems.find((item) => item.impact === "HIGH");
   const medium = recentItems.find((item) => item.impact === "MEDIUM");
   const urgentEvent = upcomingEvents.find((event) => {
@@ -260,28 +291,37 @@ async function fetchNews(pair: string): Promise<NewsRisk> {
 
   if (high || urgentEvent) {
     const headline = high
-      ? `Berita berdampak tinggi terdeteksi: ${high.title}`
-      : `Event high-impact segera rilis: ${urgentEvent!.title}`;
+      ? `Risiko berita tinggi terdeteksi: ${high.title}`
+      : `Jadwal event berdampak tinggi segera: ${urgentEvent!.title}`;
     return {
-      ...emptyRisk("BLOCKED", headline),
-      source: high?.source ?? "Forex Factory Calendar",
+      ...emptyRisk("HIGH_RISK", partialData ? `${headline} Sumber data parsial.` : headline),
+      source: high?.source ?? source,
       items: recentItems,
       upcomingEvents,
     };
   }
   if (medium || upcomingHigh || upcomingMedium) {
     const headline = medium
-      ? `Berita berdampak sedang terdeteksi: ${medium.title}`
+      ? `Risiko berita sedang terdeteksi: ${medium.title}`
       : `Jadwal event berdampak ${upcomingHigh ? "tinggi" : "sedang"} mendekat: ${(upcomingHigh ?? upcomingMedium)!.title}`;
     return {
-      ...emptyRisk("CAUTION", headline),
-      source: medium?.source ?? "Forex Factory Calendar",
+      ...emptyRisk("CAUTION", partialData ? `${headline} Sumber data parsial.` : headline),
+      source: medium?.source ?? source,
+      items: recentItems,
+      upcomingEvents,
+    };
+  }
+  if (partialData) {
+    return {
+      ...emptyRisk("UNAVAILABLE", "Sebagian sumber berita tidak tersedia. Data yang berhasil diambil tetap ditampilkan dan skor disesuaikan."),
+      source,
       items: recentItems,
       upcomingEvents,
     };
   }
   return {
     ...emptyRisk("CLEAR", recentItems[0] ? "Tidak ada berita berdampak tinggi dalam jendela risiko." : "Tidak ada headline relevan terbaru."),
+    source,
     items: recentItems,
     upcomingEvents,
   };
@@ -296,7 +336,7 @@ export async function getNewsRisk(pair: string): Promise<NewsRisk> {
   const request = fetchNews(pair)
     .catch((error) => {
       logger.warn({ pair, error }, "News provider unavailable");
-      return emptyRisk("UNAVAILABLE", "Data berita tidak tersedia. Entry diblokir untuk menjaga keamanan.");
+      return emptyRisk("UNAVAILABLE", "Data berita tidak tersedia. Setup tetap ditampilkan dengan skor/peringatan.");
     })
     .then((value) => {
       newsCache.set(pair, { value, expiresAt: Date.now() + CACHE_TTL_MS });

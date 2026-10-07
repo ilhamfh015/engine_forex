@@ -9,11 +9,11 @@ import type { MarketSummaryBias } from './marketSummaryBias';
 import type { MarketSummaryConfidenceLevel } from './marketSummaryConfidenceLevel';
 
 /**
- * Overall trading bias summary with reasoning
+ * Overall trading bias summary with a heuristic confluence score
  */
 export interface MarketSummary {
   bias: MarketSummaryBias;
-  /** Confidence percentage 0-100 */
+  /** Heuristic confluence score 0-100; not a win probability */
   confidence: number;
   confidenceLevel: MarketSummaryConfidenceLevel;
   /** Multi-line narrative explaining the bias */

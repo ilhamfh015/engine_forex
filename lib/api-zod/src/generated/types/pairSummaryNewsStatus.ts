@@ -12,6 +12,6 @@ export type PairSummaryNewsStatus = typeof PairSummaryNewsStatus[keyof typeof Pa
 export const PairSummaryNewsStatus = {
   CLEAR: 'CLEAR',
   CAUTION: 'CAUTION',
-  BLOCKED: 'BLOCKED',
+  HIGH_RISK: 'HIGH_RISK',
   UNAVAILABLE: 'UNAVAILABLE',
 } as const;

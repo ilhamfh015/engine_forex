@@ -12,6 +12,6 @@ export type NewsRiskStatus = typeof NewsRiskStatus[keyof typeof NewsRiskStatus];
 export const NewsRiskStatus = {
   CLEAR: 'CLEAR',
   CAUTION: 'CAUTION',
-  BLOCKED: 'BLOCKED',
+  HIGH_RISK: 'HIGH_RISK',
   UNAVAILABLE: 'UNAVAILABLE',
 } as const;
