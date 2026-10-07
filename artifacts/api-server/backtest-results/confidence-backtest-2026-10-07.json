@@ -1,0 +1,1456 @@
+{
+  "generatedAt": "2026-10-07T02:32:59.777Z",
+  "requestedCandlesPerSeries": 5000,
+  "reports": [
+    {
+      "pair": "EURUSD",
+      "entryTimeframe": "M15",
+      "confirmationTimeframe": "H1",
+      "candlesM15": 4999,
+      "candlesH1": 4999,
+      "m15From": "2026-08-16 10:45:00",
+      "m15To": "2026-10-07 13:15:00",
+      "splitAt": "2026-09-21 21:30:00",
+      "scenarios": [
+        {
+          "scoreScenario": "news-neutral",
+          "periods": [
+            {
+              "name": "calibration",
+              "from": "2026-08-17 11:15:00",
+              "to": "2026-09-21 21:15:00",
+              "buckets": [
+                {
+                  "scoreBand": "0-39",
+                  "signals": 2212,
+                  "ordersPlaced": 197,
+                  "unfilledOrders": 65,
+                  "trades": 132,
+                  "wins": 33,
+                  "winRate": 25,
+                  "averageGrossR": -0.267,
+                  "expectancyNetRAt0Cost": -0.267,
+                  "expectancyNetRAt005Cost": -0.317,
+                  "expectancyNetRAt010Cost": -0.367,
+                  "maxDrawdownRAt005Cost": 42.612
+                },
+                {
+                  "scoreBand": "40-59",
+                  "signals": 700,
+                  "ordersPlaced": 68,
+                  "unfilledOrders": 22,
+                  "trades": 46,
+                  "wins": 25,
+                  "winRate": 54.3,
+                  "averageGrossR": 0.701,
+                  "expectancyNetRAt0Cost": 0.701,
+                  "expectancyNetRAt005Cost": 0.651,
+                  "expectancyNetRAt010Cost": 0.601,
+                  "maxDrawdownRAt005Cost": 4.2
+                },
+                {
+                  "scoreBand": "60-79",
+                  "signals": 402,
+                  "ordersPlaced": 41,
+                  "unfilledOrders": 20,
+                  "trades": 21,
+                  "wins": 6,
+                  "winRate": 28.6,
+                  "averageGrossR": -0.096,
+                  "expectancyNetRAt0Cost": -0.096,
+                  "expectancyNetRAt005Cost": -0.146,
+                  "expectancyNetRAt010Cost": -0.196,
+                  "maxDrawdownRAt005Cost": 9.859
+                },
+                {
+                  "scoreBand": "80-100",
+                  "signals": 47,
+                  "ordersPlaced": 5,
+                  "unfilledOrders": 3,
+                  "trades": 2,
+                  "wins": 2,
+                  "winRate": 100,
+                  "averageGrossR": 2,
+                  "expectancyNetRAt0Cost": 2,
+                  "expectancyNetRAt005Cost": 1.95,
+                  "expectancyNetRAt010Cost": 1.9,
+                  "maxDrawdownRAt005Cost": 0
+                }
+              ]
+            },
+            {
+              "name": "out-of-sample",
+              "from": "2026-09-21 21:30:00",
+              "to": "2026-10-07 13:15:00",
+              "buckets": [
+                {
+                  "scoreBand": "0-39",
+                  "signals": 921,
+                  "ordersPlaced": 76,
+                  "unfilledOrders": 28,
+                  "trades": 48,
+                  "wins": 12,
+                  "winRate": 25,
+                  "averageGrossR": -0.229,
+                  "expectancyNetRAt0Cost": -0.229,
+                  "expectancyNetRAt005Cost": -0.279,
+                  "expectancyNetRAt010Cost": -0.329,
+                  "maxDrawdownRAt005Cost": 23.026
+                },
+                {
+                  "scoreBand": "40-59",
+                  "signals": 329,
+                  "ordersPlaced": 31,
+                  "unfilledOrders": 11,
+                  "trades": 20,
+                  "wins": 8,
+                  "winRate": 40,
+                  "averageGrossR": 0.099,
+                  "expectancyNetRAt0Cost": 0.099,
+                  "expectancyNetRAt005Cost": 0.049,
+                  "expectancyNetRAt010Cost": -0.001,
+                  "maxDrawdownRAt005Cost": 5.379
+                },
+                {
+                  "scoreBand": "60-79",
+                  "signals": 175,
+                  "ordersPlaced": 18,
+                  "unfilledOrders": 10,
+                  "trades": 8,
+                  "wins": 4,
+                  "winRate": 50,
+                  "averageGrossR": 0.826,
+                  "expectancyNetRAt0Cost": 0.826,
+                  "expectancyNetRAt005Cost": 0.776,
+                  "expectancyNetRAt010Cost": 0.726,
+                  "maxDrawdownRAt005Cost": 1.424
+                },
+                {
+                  "scoreBand": "80-100",
+                  "signals": 35,
+                  "ordersPlaced": 5,
+                  "unfilledOrders": 2,
+                  "trades": 3,
+                  "wins": 1,
+                  "winRate": 33.3,
+                  "averageGrossR": 0,
+                  "expectancyNetRAt0Cost": 0,
+                  "expectancyNetRAt005Cost": -0.05,
+                  "expectancyNetRAt010Cost": -0.1,
+                  "maxDrawdownRAt005Cost": 2.1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "scoreScenario": "news-unavailable",
+          "periods": [
+            {
+              "name": "calibration",
+              "from": "2026-08-17 11:15:00",
+              "to": "2026-09-21 21:15:00",
+              "buckets": [
+                {
+                  "scoreBand": "0-39",
+                  "signals": 2498,
+                  "ordersPlaced": 220,
+                  "unfilledOrders": 71,
+                  "trades": 149,
+                  "wins": 45,
+                  "winRate": 30.2,
+                  "averageGrossR": -0.111,
+                  "expectancyNetRAt0Cost": -0.111,
+                  "expectancyNetRAt005Cost": -0.161,
+                  "expectancyNetRAt010Cost": -0.211,
+                  "maxDrawdownRAt005Cost": 26.073
+                },
+                {
+                  "scoreBand": "40-59",
+                  "signals": 639,
+                  "ordersPlaced": 68,
+                  "unfilledOrders": 26,
+                  "trades": 42,
+                  "wins": 17,
+                  "winRate": 40.5,
+                  "averageGrossR": 0.321,
+                  "expectancyNetRAt0Cost": 0.321,
+                  "expectancyNetRAt005Cost": 0.271,
+                  "expectancyNetRAt010Cost": 0.221,
+                  "maxDrawdownRAt005Cost": 4.25
+                },
+                {
+                  "scoreBand": "60-79",
+                  "signals": 195,
+                  "ordersPlaced": 19,
+                  "unfilledOrders": 10,
+                  "trades": 9,
+                  "wins": 3,
+                  "winRate": 33.3,
+                  "averageGrossR": 0.004,
+                  "expectancyNetRAt0Cost": 0.004,
+                  "expectancyNetRAt005Cost": -0.046,
+                  "expectancyNetRAt010Cost": -0.096,
+                  "maxDrawdownRAt005Cost": 6.3
+                },
+                {
+                  "scoreBand": "80-100",
+                  "signals": 29,
+                  "ordersPlaced": 4,
+                  "unfilledOrders": 3,
+                  "trades": 1,
+                  "wins": 1,
+                  "winRate": 100,
+                  "averageGrossR": 2,
+                  "expectancyNetRAt0Cost": 2,
+                  "expectancyNetRAt005Cost": 1.95,
+                  "expectancyNetRAt010Cost": 1.9,
+                  "maxDrawdownRAt005Cost": 0
+                }
+              ]
+            },
+            {
+              "name": "out-of-sample",
+              "from": "2026-09-21 21:30:00",
+              "to": "2026-10-07 13:15:00",
+              "buckets": [
+                {
+                  "scoreBand": "0-39",
+                  "signals": 1050,
+                  "ordersPlaced": 88,
+                  "unfilledOrders": 31,
+                  "trades": 57,
+                  "wins": 15,
+                  "winRate": 26.3,
+                  "averageGrossR": -0.177,
+                  "expectancyNetRAt0Cost": -0.177,
+                  "expectancyNetRAt005Cost": -0.227,
+                  "expectancyNetRAt010Cost": -0.277,
+                  "maxDrawdownRAt005Cost": 21.51
+                },
+                {
+                  "scoreBand": "40-59",
+                  "signals": 293,
+                  "ordersPlaced": 29,
+                  "unfilledOrders": 14,
+                  "trades": 15,
+                  "wins": 7,
+                  "winRate": 46.7,
+                  "averageGrossR": 0.293,
+                  "expectancyNetRAt0Cost": 0.293,
+                  "expectancyNetRAt005Cost": 0.243,
+                  "expectancyNetRAt010Cost": 0.193,
+                  "maxDrawdownRAt005Cost": 2.1
+                },
+                {
+                  "scoreBand": "60-79",
+                  "signals": 90,
+                  "ordersPlaced": 11,
+                  "unfilledOrders": 6,
+                  "trades": 5,
+                  "wins": 2,
+                  "winRate": 40,
+                  "averageGrossR": 0.458,
+                  "expectancyNetRAt0Cost": 0.458,
+                  "expectancyNetRAt005Cost": 0.408,
+                  "expectancyNetRAt010Cost": 0.358,
+                  "maxDrawdownRAt005Cost": 2.1
+                },
+                {
+                  "scoreBand": "80-100",
+                  "signals": 27,
+                  "ordersPlaced": 2,
+                  "unfilledOrders": 0,
+                  "trades": 2,
+                  "wins": 1,
+                  "winRate": 50,
+                  "averageGrossR": 0.5,
+                  "expectancyNetRAt0Cost": 0.5,
+                  "expectancyNetRAt005Cost": 0.45,
+                  "expectancyNetRAt010Cost": 0.4,
+                  "maxDrawdownRAt005Cost": 1.05
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "assumptions": [
+        "Entry signals are evaluated after each closed M15 candle; H1 candles are admitted only after their modeled close time.",
+        "Historical news is unavailable. The primary news-neutral score assumes riskScore 0; a parallel scenario assumes UNAVAILABLE with riskScore 60.",
+        "Signals are counted at every eligible candle. Only one pending/open order per pair is simulated at a time, without score-based rejection.",
+        "Limit entry is the planned entry-zone midpoint, active for the next 8 M15 bars; unfilled orders expire.",
+        "After fill, TP2 is the target and SL the stop; maximum hold is 32 M15 bars. Same-bar stop/target ambiguity is resolved as a stop first.",
+        "Spread and slippage are unavailable. Expectancy is shown at 0R, 0.05R, and 0.10R round-trip friction per trade.",
+        "Drawdown is sequential closed-trade drawdown in R for this one-position simulation, not a broker-equity forecast.",
+        "The first 70% of M15 history is the calibration period; the final 30% is a chronological holdout. No weights or thresholds were fitted on the holdout.",
+        "The replay uses the latest provider history returned for each request; actual history length can be shorter than requested and this is not a tick-level execution simulation.",
+        "The final 40 M15 bars of each split are excluded as signal times so pending entries and the maximum holding window finish inside their own period.",
+        "Provider timestamps have no explicit timezone in the candle rows; calculations assume H1 and M15 use the same provider timezone and reports retain the original timestamp strings."
+      ]
+    },
+    {
+      "pair": "GBPUSD",
+      "entryTimeframe": "M15",
+      "confirmationTimeframe": "H1",
+      "candlesM15": 4999,
+      "candlesH1": 4999,
+      "m15From": "2026-08-16 10:45:00",
+      "m15To": "2026-10-07 13:15:00",
+      "splitAt": "2026-09-21 21:30:00",
+      "scenarios": [
+        {
+          "scoreScenario": "news-neutral",
+          "periods": [
+            {
+              "name": "calibration",
+              "from": "2026-08-17 11:15:00",
+              "to": "2026-09-21 21:15:00",
+              "buckets": [
+                {
+                  "scoreBand": "0-39",
+                  "signals": 2128,
+                  "ordersPlaced": 199,
+                  "unfilledOrders": 56,
+                  "trades": 143,
+                  "wins": 35,
+                  "winRate": 24.5,
+                  "averageGrossR": -0.375,
+                  "expectancyNetRAt0Cost": -0.375,
+                  "expectancyNetRAt005Cost": -0.425,
+                  "expectancyNetRAt010Cost": -0.475,
+                  "maxDrawdownRAt005Cost": 67.069
+                },
+                {
+                  "scoreBand": "40-59",
+                  "signals": 821,
+                  "ordersPlaced": 76,
+                  "unfilledOrders": 22,
+                  "trades": 54,
+                  "wins": 17,
+                  "winRate": 31.5,
+                  "averageGrossR": -0.082,
+                  "expectancyNetRAt0Cost": -0.082,
+                  "expectancyNetRAt005Cost": -0.132,
+                  "expectancyNetRAt010Cost": -0.182,
+                  "maxDrawdownRAt005Cost": 15.787
+                },
+                {
+                  "scoreBand": "60-79",
+                  "signals": 375,
+                  "ordersPlaced": 34,
+                  "unfilledOrders": 14,
+                  "trades": 20,
+                  "wins": 6,
+                  "winRate": 30,
+                  "averageGrossR": 0.104,
+                  "expectancyNetRAt0Cost": 0.104,
+                  "expectancyNetRAt005Cost": 0.054,
+                  "expectancyNetRAt010Cost": 0.004,
+                  "maxDrawdownRAt005Cost": 6.35
+                },
+                {
+                  "scoreBand": "80-100",
+                  "signals": 37,
+                  "ordersPlaced": 3,
+                  "unfilledOrders": 1,
+                  "trades": 2,
+                  "wins": 1,
+                  "winRate": 50,
+                  "averageGrossR": 0.5,
+                  "expectancyNetRAt0Cost": 0.5,
+                  "expectancyNetRAt005Cost": 0.45,
+                  "expectancyNetRAt010Cost": 0.4,
+                  "maxDrawdownRAt005Cost": 1.05
+                }
+              ]
+            },
+            {
+              "name": "out-of-sample",
+              "from": "2026-09-21 21:30:00",
+              "to": "2026-10-07 13:15:00",
+              "buckets": [
+                {
+                  "scoreBand": "0-39",
+                  "signals": 815,
+                  "ordersPlaced": 81,
+                  "unfilledOrders": 26,
+                  "trades": 55,
+                  "wins": 10,
+                  "winRate": 18.2,
+                  "averageGrossR": -0.405,
+                  "expectancyNetRAt0Cost": -0.405,
+                  "expectancyNetRAt005Cost": -0.455,
+                  "expectancyNetRAt010Cost": -0.505,
+                  "maxDrawdownRAt005Cost": 28.941
+                },
+                {
+                  "scoreBand": "40-59",
+                  "signals": 364,
+                  "ordersPlaced": 35,
+                  "unfilledOrders": 9,
+                  "trades": 26,
+                  "wins": 10,
+                  "winRate": 38.5,
+                  "averageGrossR": 0.328,
+                  "expectancyNetRAt0Cost": 0.328,
+                  "expectancyNetRAt005Cost": 0.278,
+                  "expectancyNetRAt010Cost": 0.228,
+                  "maxDrawdownRAt005Cost": 3.15
+                },
+                {
+                  "scoreBand": "60-79",
+                  "signals": 237,
+                  "ordersPlaced": 20,
+                  "unfilledOrders": 10,
+                  "trades": 10,
+                  "wins": 3,
+                  "winRate": 30,
+                  "averageGrossR": -0.282,
+                  "expectancyNetRAt0Cost": -0.282,
+                  "expectancyNetRAt005Cost": -0.332,
+                  "expectancyNetRAt010Cost": -0.382,
+                  "maxDrawdownRAt005Cost": 6.266
+                },
+                {
+                  "scoreBand": "80-100",
+                  "signals": 44,
+                  "ordersPlaced": 2,
+                  "unfilledOrders": 2,
+                  "trades": 0,
+                  "wins": 0,
+                  "winRate": null,
+                  "averageGrossR": null,
+                  "expectancyNetRAt0Cost": null,
+                  "expectancyNetRAt005Cost": null,
+                  "expectancyNetRAt010Cost": null,
+                  "maxDrawdownRAt005Cost": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "scoreScenario": "news-unavailable",
+          "periods": [
+            {
+              "name": "calibration",
+              "from": "2026-08-17 11:15:00",
+              "to": "2026-09-21 21:15:00",
+              "buckets": [
+                {
+                  "scoreBand": "0-39",
+                  "signals": 2526,
+                  "ordersPlaced": 236,
+                  "unfilledOrders": 62,
+                  "trades": 174,
+                  "wins": 45,
+                  "winRate": 25.9,
+                  "averageGrossR": -0.316,
+                  "expectancyNetRAt0Cost": -0.316,
+                  "expectancyNetRAt005Cost": -0.366,
+                  "expectancyNetRAt010Cost": -0.416,
+                  "maxDrawdownRAt005Cost": 71.826
+                },
+                {
+                  "scoreBand": "40-59",
+                  "signals": 652,
+                  "ordersPlaced": 57,
+                  "unfilledOrders": 23,
+                  "trades": 34,
+                  "wins": 8,
+                  "winRate": 23.5,
+                  "averageGrossR": -0.308,
+                  "expectancyNetRAt0Cost": -0.308,
+                  "expectancyNetRAt005Cost": -0.358,
+                  "expectancyNetRAt010Cost": -0.408,
+                  "maxDrawdownRAt005Cost": 14.88
+                },
+                {
+                  "scoreBand": "60-79",
+                  "signals": 156,
+                  "ordersPlaced": 17,
+                  "unfilledOrders": 7,
+                  "trades": 10,
+                  "wins": 6,
+                  "winRate": 60,
+                  "averageGrossR": 1.137,
+                  "expectancyNetRAt0Cost": 1.137,
+                  "expectancyNetRAt005Cost": 1.087,
+                  "expectancyNetRAt010Cost": 1.037,
+                  "maxDrawdownRAt005Cost": 1.1
+                },
+                {
+                  "scoreBand": "80-100",
+                  "signals": 27,
+                  "ordersPlaced": 2,
+                  "unfilledOrders": 1,
+                  "trades": 1,
+                  "wins": 0,
+                  "winRate": 0,
+                  "averageGrossR": -1,
+                  "expectancyNetRAt0Cost": -1,
+                  "expectancyNetRAt005Cost": -1.05,
+                  "expectancyNetRAt010Cost": -1.1,
+                  "maxDrawdownRAt005Cost": 1.05
+                }
+              ]
+            },
+            {
+              "name": "out-of-sample",
+              "from": "2026-09-21 21:30:00",
+              "to": "2026-10-07 13:15:00",
+              "buckets": [
+                {
+                  "scoreBand": "0-39",
+                  "signals": 985,
+                  "ordersPlaced": 94,
+                  "unfilledOrders": 27,
+                  "trades": 67,
+                  "wins": 15,
+                  "winRate": 22.4,
+                  "averageGrossR": -0.253,
+                  "expectancyNetRAt0Cost": -0.253,
+                  "expectancyNetRAt005Cost": -0.303,
+                  "expectancyNetRAt010Cost": -0.353,
+                  "maxDrawdownRAt005Cost": 24.182
+                },
+                {
+                  "scoreBand": "40-59",
+                  "signals": 336,
+                  "ordersPlaced": 33,
+                  "unfilledOrders": 13,
+                  "trades": 20,
+                  "wins": 6,
+                  "winRate": 30,
+                  "averageGrossR": -0.056,
+                  "expectancyNetRAt0Cost": -0.056,
+                  "expectancyNetRAt005Cost": -0.106,
+                  "expectancyNetRAt010Cost": -0.156,
+                  "maxDrawdownRAt005Cost": 4.799
+                },
+                {
+                  "scoreBand": "60-79",
+                  "signals": 103,
+                  "ordersPlaced": 9,
+                  "unfilledOrders": 5,
+                  "trades": 4,
+                  "wins": 2,
+                  "winRate": 50,
+                  "averageGrossR": 0.37,
+                  "expectancyNetRAt0Cost": 0.37,
+                  "expectancyNetRAt005Cost": 0.32,
+                  "expectancyNetRAt010Cost": 0.27,
+                  "maxDrawdownRAt005Cost": 1.421
+                },
+                {
+                  "scoreBand": "80-100",
+                  "signals": 36,
+                  "ordersPlaced": 2,
+                  "unfilledOrders": 2,
+                  "trades": 0,
+                  "wins": 0,
+                  "winRate": null,
+                  "averageGrossR": null,
+                  "expectancyNetRAt0Cost": null,
+                  "expectancyNetRAt005Cost": null,
+                  "expectancyNetRAt010Cost": null,
+                  "maxDrawdownRAt005Cost": null
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "assumptions": [
+        "Entry signals are evaluated after each closed M15 candle; H1 candles are admitted only after their modeled close time.",
+        "Historical news is unavailable. The primary news-neutral score assumes riskScore 0; a parallel scenario assumes UNAVAILABLE with riskScore 60.",
+        "Signals are counted at every eligible candle. Only one pending/open order per pair is simulated at a time, without score-based rejection.",
+        "Limit entry is the planned entry-zone midpoint, active for the next 8 M15 bars; unfilled orders expire.",
+        "After fill, TP2 is the target and SL the stop; maximum hold is 32 M15 bars. Same-bar stop/target ambiguity is resolved as a stop first.",
+        "Spread and slippage are unavailable. Expectancy is shown at 0R, 0.05R, and 0.10R round-trip friction per trade.",
+        "Drawdown is sequential closed-trade drawdown in R for this one-position simulation, not a broker-equity forecast.",
+        "The first 70% of M15 history is the calibration period; the final 30% is a chronological holdout. No weights or thresholds were fitted on the holdout.",
+        "The replay uses the latest provider history returned for each request; actual history length can be shorter than requested and this is not a tick-level execution simulation.",
+        "The final 40 M15 bars of each split are excluded as signal times so pending entries and the maximum holding window finish inside their own period.",
+        "Provider timestamps have no explicit timezone in the candle rows; calculations assume H1 and M15 use the same provider timezone and reports retain the original timestamp strings."
+      ]
+    },
+    {
+      "pair": "USDJPY",
+      "entryTimeframe": "M15",
+      "confirmationTimeframe": "H1",
+      "candlesM15": 4999,
+      "candlesH1": 4999,
+      "m15From": "2026-08-16 10:45:00",
+      "m15To": "2026-10-07 13:15:00",
+      "splitAt": "2026-09-21 21:30:00",
+      "scenarios": [
+        {
+          "scoreScenario": "news-neutral",
+          "periods": [
+            {
+              "name": "calibration",
+              "from": "2026-08-17 11:15:00",
+              "to": "2026-09-21 21:15:00",
+              "buckets": [
+                {
+                  "scoreBand": "0-39",
+                  "signals": 2119,
+                  "ordersPlaced": 196,
+                  "unfilledOrders": 63,
+                  "trades": 133,
+                  "wins": 32,
+                  "winRate": 24.1,
+                  "averageGrossR": -0.29,
+                  "expectancyNetRAt0Cost": -0.29,
+                  "expectancyNetRAt005Cost": -0.34,
+                  "expectancyNetRAt010Cost": -0.39,
+                  "maxDrawdownRAt005Cost": 47.222
+                },
+                {
+                  "scoreBand": "40-59",
+                  "signals": 787,
+                  "ordersPlaced": 79,
+                  "unfilledOrders": 34,
+                  "trades": 45,
+                  "wins": 20,
+                  "winRate": 44.4,
+                  "averageGrossR": 0.293,
+                  "expectancyNetRAt0Cost": 0.293,
+                  "expectancyNetRAt005Cost": 0.243,
+                  "expectancyNetRAt010Cost": 0.193,
+                  "maxDrawdownRAt005Cost": 9.595
+                },
+                {
+                  "scoreBand": "60-79",
+                  "signals": 401,
+                  "ordersPlaced": 43,
+                  "unfilledOrders": 28,
+                  "trades": 15,
+                  "wins": 8,
+                  "winRate": 53.3,
+                  "averageGrossR": 0.663,
+                  "expectancyNetRAt0Cost": 0.663,
+                  "expectancyNetRAt005Cost": 0.613,
+                  "expectancyNetRAt010Cost": 0.563,
+                  "maxDrawdownRAt005Cost": 3.15
+                },
+                {
+                  "scoreBand": "80-100",
+                  "signals": 54,
+                  "ordersPlaced": 6,
+                  "unfilledOrders": 1,
+                  "trades": 5,
+                  "wins": 3,
+                  "winRate": 60,
+                  "averageGrossR": 1.013,
+                  "expectancyNetRAt0Cost": 1.013,
+                  "expectancyNetRAt005Cost": 0.963,
+                  "expectancyNetRAt010Cost": 0.913,
+                  "maxDrawdownRAt005Cost": 2.1
+                }
+              ]
+            },
+            {
+              "name": "out-of-sample",
+              "from": "2026-09-21 21:30:00",
+              "to": "2026-10-07 13:15:00",
+              "buckets": [
+                {
+                  "scoreBand": "0-39",
+                  "signals": 966,
+                  "ordersPlaced": 98,
+                  "unfilledOrders": 36,
+                  "trades": 62,
+                  "wins": 13,
+                  "winRate": 21,
+                  "averageGrossR": -0.462,
+                  "expectancyNetRAt0Cost": -0.462,
+                  "expectancyNetRAt005Cost": -0.512,
+                  "expectancyNetRAt010Cost": -0.562,
+                  "maxDrawdownRAt005Cost": 35.193
+                },
+                {
+                  "scoreBand": "40-59",
+                  "signals": 360,
+                  "ordersPlaced": 35,
+                  "unfilledOrders": 10,
+                  "trades": 25,
+                  "wins": 11,
+                  "winRate": 44,
+                  "averageGrossR": 0.193,
+                  "expectancyNetRAt0Cost": 0.193,
+                  "expectancyNetRAt005Cost": 0.143,
+                  "expectancyNetRAt010Cost": 0.093,
+                  "maxDrawdownRAt005Cost": 4.063
+                },
+                {
+                  "scoreBand": "60-79",
+                  "signals": 120,
+                  "ordersPlaced": 11,
+                  "unfilledOrders": 8,
+                  "trades": 3,
+                  "wins": 1,
+                  "winRate": 33.3,
+                  "averageGrossR": 0.472,
+                  "expectancyNetRAt0Cost": 0.472,
+                  "expectancyNetRAt005Cost": 0.422,
+                  "expectancyNetRAt010Cost": 0.372,
+                  "maxDrawdownRAt005Cost": 1.302
+                },
+                {
+                  "scoreBand": "80-100",
+                  "signals": 14,
+                  "ordersPlaced": 2,
+                  "unfilledOrders": 0,
+                  "trades": 2,
+                  "wins": 0,
+                  "winRate": 0,
+                  "averageGrossR": -1,
+                  "expectancyNetRAt0Cost": -1,
+                  "expectancyNetRAt005Cost": -1.05,
+                  "expectancyNetRAt010Cost": -1.1,
+                  "maxDrawdownRAt005Cost": 2.1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "scoreScenario": "news-unavailable",
+          "periods": [
+            {
+              "name": "calibration",
+              "from": "2026-08-17 11:15:00",
+              "to": "2026-09-21 21:15:00",
+              "buckets": [
+                {
+                  "scoreBand": "0-39",
+                  "signals": 2447,
+                  "ordersPlaced": 223,
+                  "unfilledOrders": 71,
+                  "trades": 152,
+                  "wins": 42,
+                  "winRate": 27.6,
+                  "averageGrossR": -0.2,
+                  "expectancyNetRAt0Cost": -0.2,
+                  "expectancyNetRAt005Cost": -0.25,
+                  "expectancyNetRAt010Cost": -0.3,
+                  "maxDrawdownRAt005Cost": 41.52
+                },
+                {
+                  "scoreBand": "40-59",
+                  "signals": 678,
+                  "ordersPlaced": 77,
+                  "unfilledOrders": 38,
+                  "trades": 39,
+                  "wins": 16,
+                  "winRate": 41,
+                  "averageGrossR": 0.275,
+                  "expectancyNetRAt0Cost": 0.275,
+                  "expectancyNetRAt005Cost": 0.225,
+                  "expectancyNetRAt010Cost": 0.175,
+                  "maxDrawdownRAt005Cost": 7.204
+                },
+                {
+                  "scoreBand": "60-79",
+                  "signals": 195,
+                  "ordersPlaced": 18,
+                  "unfilledOrders": 16,
+                  "trades": 2,
+                  "wins": 2,
+                  "winRate": 100,
+                  "averageGrossR": 2.11,
+                  "expectancyNetRAt0Cost": 2.11,
+                  "expectancyNetRAt005Cost": 2.06,
+                  "expectancyNetRAt010Cost": 2.01,
+                  "maxDrawdownRAt005Cost": 0
+                },
+                {
+                  "scoreBand": "80-100",
+                  "signals": 41,
+                  "ordersPlaced": 6,
+                  "unfilledOrders": 1,
+                  "trades": 5,
+                  "wins": 3,
+                  "winRate": 60,
+                  "averageGrossR": 1.013,
+                  "expectancyNetRAt0Cost": 1.013,
+                  "expectancyNetRAt005Cost": 0.963,
+                  "expectancyNetRAt010Cost": 0.913,
+                  "maxDrawdownRAt005Cost": 2.1
+                }
+              ]
+            },
+            {
+              "name": "out-of-sample",
+              "from": "2026-09-21 21:30:00",
+              "to": "2026-10-07 13:15:00",
+              "buckets": [
+                {
+                  "scoreBand": "0-39",
+                  "signals": 1140,
+                  "ordersPlaced": 115,
+                  "unfilledOrders": 40,
+                  "trades": 75,
+                  "wins": 19,
+                  "winRate": 25.3,
+                  "averageGrossR": -0.325,
+                  "expectancyNetRAt0Cost": -0.325,
+                  "expectancyNetRAt005Cost": -0.375,
+                  "expectancyNetRAt010Cost": -0.425,
+                  "maxDrawdownRAt005Cost": 30.4
+                },
+                {
+                  "scoreBand": "40-59",
+                  "signals": 269,
+                  "ordersPlaced": 24,
+                  "unfilledOrders": 10,
+                  "trades": 14,
+                  "wins": 6,
+                  "winRate": 42.9,
+                  "averageGrossR": 0.215,
+                  "expectancyNetRAt0Cost": 0.215,
+                  "expectancyNetRAt005Cost": 0.165,
+                  "expectancyNetRAt010Cost": 0.115,
+                  "maxDrawdownRAt005Cost": 6.115
+                },
+                {
+                  "scoreBand": "60-79",
+                  "signals": 44,
+                  "ordersPlaced": 7,
+                  "unfilledOrders": 4,
+                  "trades": 3,
+                  "wins": 0,
+                  "winRate": 0,
+                  "averageGrossR": -1,
+                  "expectancyNetRAt0Cost": -1,
+                  "expectancyNetRAt005Cost": -1.05,
+                  "expectancyNetRAt010Cost": -1.1,
+                  "maxDrawdownRAt005Cost": 3.15
+                },
+                {
+                  "scoreBand": "80-100",
+                  "signals": 7,
+                  "ordersPlaced": 0,
+                  "unfilledOrders": 0,
+                  "trades": 0,
+                  "wins": 0,
+                  "winRate": null,
+                  "averageGrossR": null,
+                  "expectancyNetRAt0Cost": null,
+                  "expectancyNetRAt005Cost": null,
+                  "expectancyNetRAt010Cost": null,
+                  "maxDrawdownRAt005Cost": null
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "assumptions": [
+        "Entry signals are evaluated after each closed M15 candle; H1 candles are admitted only after their modeled close time.",
+        "Historical news is unavailable. The primary news-neutral score assumes riskScore 0; a parallel scenario assumes UNAVAILABLE with riskScore 60.",
+        "Signals are counted at every eligible candle. Only one pending/open order per pair is simulated at a time, without score-based rejection.",
+        "Limit entry is the planned entry-zone midpoint, active for the next 8 M15 bars; unfilled orders expire.",
+        "After fill, TP2 is the target and SL the stop; maximum hold is 32 M15 bars. Same-bar stop/target ambiguity is resolved as a stop first.",
+        "Spread and slippage are unavailable. Expectancy is shown at 0R, 0.05R, and 0.10R round-trip friction per trade.",
+        "Drawdown is sequential closed-trade drawdown in R for this one-position simulation, not a broker-equity forecast.",
+        "The first 70% of M15 history is the calibration period; the final 30% is a chronological holdout. No weights or thresholds were fitted on the holdout.",
+        "The replay uses the latest provider history returned for each request; actual history length can be shorter than requested and this is not a tick-level execution simulation.",
+        "The final 40 M15 bars of each split are excluded as signal times so pending entries and the maximum holding window finish inside their own period.",
+        "Provider timestamps have no explicit timezone in the candle rows; calculations assume H1 and M15 use the same provider timezone and reports retain the original timestamp strings."
+      ]
+    },
+    {
+      "pair": "XAUUSD",
+      "entryTimeframe": "M15",
+      "confirmationTimeframe": "H1",
+      "candlesM15": 4999,
+      "candlesH1": 4999,
+      "m15From": "2026-08-16 10:45:00",
+      "m15To": "2026-10-07 13:15:00",
+      "splitAt": "2026-09-21 21:30:00",
+      "scenarios": [
+        {
+          "scoreScenario": "news-neutral",
+          "periods": [
+            {
+              "name": "calibration",
+              "from": "2026-08-17 11:15:00",
+              "to": "2026-09-21 21:15:00",
+              "buckets": [
+                {
+                  "scoreBand": "0-39",
+                  "signals": 2099,
+                  "ordersPlaced": 163,
+                  "unfilledOrders": 67,
+                  "trades": 96,
+                  "wins": 32,
+                  "winRate": 33.3,
+                  "averageGrossR": 0.031,
+                  "expectancyNetRAt0Cost": 0.031,
+                  "expectancyNetRAt005Cost": -0.019,
+                  "expectancyNetRAt010Cost": -0.069,
+                  "maxDrawdownRAt005Cost": 6.733
+                },
+                {
+                  "scoreBand": "40-59",
+                  "signals": 684,
+                  "ordersPlaced": 68,
+                  "unfilledOrders": 22,
+                  "trades": 46,
+                  "wins": 10,
+                  "winRate": 21.7,
+                  "averageGrossR": -0.183,
+                  "expectancyNetRAt0Cost": -0.183,
+                  "expectancyNetRAt005Cost": -0.233,
+                  "expectancyNetRAt010Cost": -0.283,
+                  "maxDrawdownRAt005Cost": 16.078
+                },
+                {
+                  "scoreBand": "60-79",
+                  "signals": 541,
+                  "ordersPlaced": 68,
+                  "unfilledOrders": 41,
+                  "trades": 27,
+                  "wins": 10,
+                  "winRate": 37,
+                  "averageGrossR": 0.272,
+                  "expectancyNetRAt0Cost": 0.272,
+                  "expectancyNetRAt005Cost": 0.222,
+                  "expectancyNetRAt010Cost": 0.172,
+                  "maxDrawdownRAt005Cost": 7.35
+                },
+                {
+                  "scoreBand": "80-100",
+                  "signals": 37,
+                  "ordersPlaced": 4,
+                  "unfilledOrders": 4,
+                  "trades": 0,
+                  "wins": 0,
+                  "winRate": null,
+                  "averageGrossR": null,
+                  "expectancyNetRAt0Cost": null,
+                  "expectancyNetRAt005Cost": null,
+                  "expectancyNetRAt010Cost": null,
+                  "maxDrawdownRAt005Cost": null
+                }
+              ]
+            },
+            {
+              "name": "out-of-sample",
+              "from": "2026-09-21 21:30:00",
+              "to": "2026-10-07 13:15:00",
+              "buckets": [
+                {
+                  "scoreBand": "0-39",
+                  "signals": 1042,
+                  "ordersPlaced": 100,
+                  "unfilledOrders": 41,
+                  "trades": 59,
+                  "wins": 15,
+                  "winRate": 25.4,
+                  "averageGrossR": -0.172,
+                  "expectancyNetRAt0Cost": -0.172,
+                  "expectancyNetRAt005Cost": -0.222,
+                  "expectancyNetRAt010Cost": -0.272,
+                  "maxDrawdownRAt005Cost": 13.106
+                },
+                {
+                  "scoreBand": "40-59",
+                  "signals": 292,
+                  "ordersPlaced": 31,
+                  "unfilledOrders": 10,
+                  "trades": 21,
+                  "wins": 5,
+                  "winRate": 23.8,
+                  "averageGrossR": -0.158,
+                  "expectancyNetRAt0Cost": -0.158,
+                  "expectancyNetRAt005Cost": -0.208,
+                  "expectancyNetRAt010Cost": -0.258,
+                  "maxDrawdownRAt005Cost": 7.083
+                },
+                {
+                  "scoreBand": "60-79",
+                  "signals": 119,
+                  "ordersPlaced": 9,
+                  "unfilledOrders": 5,
+                  "trades": 4,
+                  "wins": 1,
+                  "winRate": 25,
+                  "averageGrossR": -0.082,
+                  "expectancyNetRAt0Cost": -0.082,
+                  "expectancyNetRAt005Cost": -0.132,
+                  "expectancyNetRAt010Cost": -0.182,
+                  "maxDrawdownRAt005Cost": 2.1
+                },
+                {
+                  "scoreBand": "80-100",
+                  "signals": 7,
+                  "ordersPlaced": 0,
+                  "unfilledOrders": 0,
+                  "trades": 0,
+                  "wins": 0,
+                  "winRate": null,
+                  "averageGrossR": null,
+                  "expectancyNetRAt0Cost": null,
+                  "expectancyNetRAt005Cost": null,
+                  "expectancyNetRAt010Cost": null,
+                  "maxDrawdownRAt005Cost": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "scoreScenario": "news-unavailable",
+          "periods": [
+            {
+              "name": "calibration",
+              "from": "2026-08-17 11:15:00",
+              "to": "2026-09-21 21:15:00",
+              "buckets": [
+                {
+                  "scoreBand": "0-39",
+                  "signals": 2287,
+                  "ordersPlaced": 182,
+                  "unfilledOrders": 68,
+                  "trades": 114,
+                  "wins": 34,
+                  "winRate": 29.8,
+                  "averageGrossR": -0.06,
+                  "expectancyNetRAt0Cost": -0.06,
+                  "expectancyNetRAt005Cost": -0.11,
+                  "expectancyNetRAt010Cost": -0.16,
+                  "maxDrawdownRAt005Cost": 16.839
+                },
+                {
+                  "scoreBand": "40-59",
+                  "signals": 818,
+                  "ordersPlaced": 98,
+                  "unfilledOrders": 50,
+                  "trades": 48,
+                  "wins": 14,
+                  "winRate": 29.2,
+                  "averageGrossR": 0.037,
+                  "expectancyNetRAt0Cost": 0.037,
+                  "expectancyNetRAt005Cost": -0.013,
+                  "expectancyNetRAt010Cost": -0.063,
+                  "maxDrawdownRAt005Cost": 12.356
+                },
+                {
+                  "scoreBand": "60-79",
+                  "signals": 235,
+                  "ordersPlaced": 19,
+                  "unfilledOrders": 12,
+                  "trades": 7,
+                  "wins": 4,
+                  "winRate": 57.1,
+                  "averageGrossR": 0.999,
+                  "expectancyNetRAt0Cost": 0.999,
+                  "expectancyNetRAt005Cost": 0.949,
+                  "expectancyNetRAt010Cost": 0.899,
+                  "maxDrawdownRAt005Cost": 1.05
+                },
+                {
+                  "scoreBand": "80-100",
+                  "signals": 21,
+                  "ordersPlaced": 4,
+                  "unfilledOrders": 4,
+                  "trades": 0,
+                  "wins": 0,
+                  "winRate": null,
+                  "averageGrossR": null,
+                  "expectancyNetRAt0Cost": null,
+                  "expectancyNetRAt005Cost": null,
+                  "expectancyNetRAt010Cost": null,
+                  "maxDrawdownRAt005Cost": null
+                }
+              ]
+            },
+            {
+              "name": "out-of-sample",
+              "from": "2026-09-21 21:30:00",
+              "to": "2026-10-07 13:15:00",
+              "buckets": [
+                {
+                  "scoreBand": "0-39",
+                  "signals": 1157,
+                  "ordersPlaced": 113,
+                  "unfilledOrders": 46,
+                  "trades": 67,
+                  "wins": 17,
+                  "winRate": 25.4,
+                  "averageGrossR": -0.163,
+                  "expectancyNetRAt0Cost": -0.163,
+                  "expectancyNetRAt005Cost": -0.213,
+                  "expectancyNetRAt010Cost": -0.263,
+                  "maxDrawdownRAt005Cost": 16.227
+                },
+                {
+                  "scoreBand": "40-59",
+                  "signals": 238,
+                  "ordersPlaced": 21,
+                  "unfilledOrders": 7,
+                  "trades": 14,
+                  "wins": 3,
+                  "winRate": 21.4,
+                  "averageGrossR": -0.254,
+                  "expectancyNetRAt0Cost": -0.254,
+                  "expectancyNetRAt005Cost": -0.304,
+                  "expectancyNetRAt010Cost": -0.354,
+                  "maxDrawdownRAt005Cost": 4.772
+                },
+                {
+                  "scoreBand": "60-79",
+                  "signals": 64,
+                  "ordersPlaced": 6,
+                  "unfilledOrders": 3,
+                  "trades": 3,
+                  "wins": 1,
+                  "winRate": 33.3,
+                  "averageGrossR": 0.224,
+                  "expectancyNetRAt0Cost": 0.224,
+                  "expectancyNetRAt005Cost": 0.174,
+                  "expectancyNetRAt010Cost": 0.124,
+                  "maxDrawdownRAt005Cost": 1.05
+                },
+                {
+                  "scoreBand": "80-100",
+                  "signals": 1,
+                  "ordersPlaced": 0,
+                  "unfilledOrders": 0,
+                  "trades": 0,
+                  "wins": 0,
+                  "winRate": null,
+                  "averageGrossR": null,
+                  "expectancyNetRAt0Cost": null,
+                  "expectancyNetRAt005Cost": null,
+                  "expectancyNetRAt010Cost": null,
+                  "maxDrawdownRAt005Cost": null
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "assumptions": [
+        "Entry signals are evaluated after each closed M15 candle; H1 candles are admitted only after their modeled close time.",
+        "Historical news is unavailable. The primary news-neutral score assumes riskScore 0; a parallel scenario assumes UNAVAILABLE with riskScore 60.",
+        "Signals are counted at every eligible candle. Only one pending/open order per pair is simulated at a time, without score-based rejection.",
+        "Limit entry is the planned entry-zone midpoint, active for the next 8 M15 bars; unfilled orders expire.",
+        "After fill, TP2 is the target and SL the stop; maximum hold is 32 M15 bars. Same-bar stop/target ambiguity is resolved as a stop first.",
+        "Spread and slippage are unavailable. Expectancy is shown at 0R, 0.05R, and 0.10R round-trip friction per trade.",
+        "Drawdown is sequential closed-trade drawdown in R for this one-position simulation, not a broker-equity forecast.",
+        "The first 70% of M15 history is the calibration period; the final 30% is a chronological holdout. No weights or thresholds were fitted on the holdout.",
+        "The replay uses the latest provider history returned for each request; actual history length can be shorter than requested and this is not a tick-level execution simulation.",
+        "The final 40 M15 bars of each split are excluded as signal times so pending entries and the maximum holding window finish inside their own period.",
+        "Provider timestamps have no explicit timezone in the candle rows; calculations assume H1 and M15 use the same provider timezone and reports retain the original timestamp strings."
+      ]
+    },
+    {
+      "pair": "BTCUSD",
+      "entryTimeframe": "M15",
+      "confirmationTimeframe": "H1",
+      "candlesM15": 4999,
+      "candlesH1": 4999,
+      "m15From": "2026-08-16 00:45:00",
+      "m15To": "2026-10-07 02:15:00",
+      "splitAt": "2026-09-21 11:30:00",
+      "scenarios": [
+        {
+          "scoreScenario": "news-neutral",
+          "periods": [
+            {
+              "name": "calibration",
+              "from": "2026-08-17 01:15:00",
+              "to": "2026-09-21 11:15:00",
+              "buckets": [
+                {
+                  "scoreBand": "0-39",
+                  "signals": 1932,
+                  "ordersPlaced": 199,
+                  "unfilledOrders": 90,
+                  "trades": 109,
+                  "wins": 30,
+                  "winRate": 27.5,
+                  "averageGrossR": -0.138,
+                  "expectancyNetRAt0Cost": -0.138,
+                  "expectancyNetRAt005Cost": -0.188,
+                  "expectancyNetRAt010Cost": -0.238,
+                  "maxDrawdownRAt005Cost": 32.152
+                },
+                {
+                  "scoreBand": "40-59",
+                  "signals": 861,
+                  "ordersPlaced": 87,
+                  "unfilledOrders": 38,
+                  "trades": 49,
+                  "wins": 15,
+                  "winRate": 30.6,
+                  "averageGrossR": -0.112,
+                  "expectancyNetRAt0Cost": -0.112,
+                  "expectancyNetRAt005Cost": -0.162,
+                  "expectancyNetRAt010Cost": -0.212,
+                  "maxDrawdownRAt005Cost": 13.066
+                },
+                {
+                  "scoreBand": "60-79",
+                  "signals": 501,
+                  "ordersPlaced": 50,
+                  "unfilledOrders": 29,
+                  "trades": 21,
+                  "wins": 6,
+                  "winRate": 28.6,
+                  "averageGrossR": -0.101,
+                  "expectancyNetRAt0Cost": -0.101,
+                  "expectancyNetRAt005Cost": -0.151,
+                  "expectancyNetRAt010Cost": -0.201,
+                  "maxDrawdownRAt005Cost": 7.831
+                },
+                {
+                  "scoreBand": "80-100",
+                  "signals": 67,
+                  "ordersPlaced": 8,
+                  "unfilledOrders": 4,
+                  "trades": 4,
+                  "wins": 2,
+                  "winRate": 50,
+                  "averageGrossR": 0.669,
+                  "expectancyNetRAt0Cost": 0.669,
+                  "expectancyNetRAt005Cost": 0.619,
+                  "expectancyNetRAt010Cost": 0.569,
+                  "maxDrawdownRAt005Cost": 2.1
+                }
+              ]
+            },
+            {
+              "name": "out-of-sample",
+              "from": "2026-09-21 11:30:00",
+              "to": "2026-10-07 02:15:00",
+              "buckets": [
+                {
+                  "scoreBand": "0-39",
+                  "signals": 958,
+                  "ordersPlaced": 100,
+                  "unfilledOrders": 46,
+                  "trades": 54,
+                  "wins": 20,
+                  "winRate": 37,
+                  "averageGrossR": 0.098,
+                  "expectancyNetRAt0Cost": 0.098,
+                  "expectancyNetRAt005Cost": 0.048,
+                  "expectancyNetRAt010Cost": -0.002,
+                  "maxDrawdownRAt005Cost": 10.972
+                },
+                {
+                  "scoreBand": "40-59",
+                  "signals": 337,
+                  "ordersPlaced": 36,
+                  "unfilledOrders": 15,
+                  "trades": 21,
+                  "wins": 5,
+                  "winRate": 23.8,
+                  "averageGrossR": -0.233,
+                  "expectancyNetRAt0Cost": -0.233,
+                  "expectancyNetRAt005Cost": -0.283,
+                  "expectancyNetRAt010Cost": -0.333,
+                  "maxDrawdownRAt005Cost": 6.971
+                },
+                {
+                  "scoreBand": "60-79",
+                  "signals": 144,
+                  "ordersPlaced": 15,
+                  "unfilledOrders": 9,
+                  "trades": 6,
+                  "wins": 2,
+                  "winRate": 33.3,
+                  "averageGrossR": 0.008,
+                  "expectancyNetRAt0Cost": 0.008,
+                  "expectancyNetRAt005Cost": -0.042,
+                  "expectancyNetRAt010Cost": -0.092,
+                  "maxDrawdownRAt005Cost": 2.1
+                },
+                {
+                  "scoreBand": "80-100",
+                  "signals": 21,
+                  "ordersPlaced": 2,
+                  "unfilledOrders": 2,
+                  "trades": 0,
+                  "wins": 0,
+                  "winRate": null,
+                  "averageGrossR": null,
+                  "expectancyNetRAt0Cost": null,
+                  "expectancyNetRAt005Cost": null,
+                  "expectancyNetRAt010Cost": null,
+                  "maxDrawdownRAt005Cost": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "scoreScenario": "news-unavailable",
+          "periods": [
+            {
+              "name": "calibration",
+              "from": "2026-08-17 01:15:00",
+              "to": "2026-09-21 11:15:00",
+              "buckets": [
+                {
+                  "scoreBand": "0-39",
+                  "signals": 2271,
+                  "ordersPlaced": 230,
+                  "unfilledOrders": 98,
+                  "trades": 132,
+                  "wins": 38,
+                  "winRate": 28.8,
+                  "averageGrossR": -0.109,
+                  "expectancyNetRAt0Cost": -0.109,
+                  "expectancyNetRAt005Cost": -0.159,
+                  "expectancyNetRAt010Cost": -0.209,
+                  "maxDrawdownRAt005Cost": 29.666
+                },
+                {
+                  "scoreBand": "40-59",
+                  "signals": 798,
+                  "ordersPlaced": 88,
+                  "unfilledOrders": 48,
+                  "trades": 40,
+                  "wins": 10,
+                  "winRate": 25,
+                  "averageGrossR": -0.278,
+                  "expectancyNetRAt0Cost": -0.278,
+                  "expectancyNetRAt005Cost": -0.328,
+                  "expectancyNetRAt010Cost": -0.378,
+                  "maxDrawdownRAt005Cost": 19.182
+                },
+                {
+                  "scoreBand": "60-79",
+                  "signals": 249,
+                  "ordersPlaced": 20,
+                  "unfilledOrders": 11,
+                  "trades": 9,
+                  "wins": 3,
+                  "winRate": 33.3,
+                  "averageGrossR": 0.097,
+                  "expectancyNetRAt0Cost": 0.097,
+                  "expectancyNetRAt005Cost": 0.047,
+                  "expectancyNetRAt010Cost": -0.003,
+                  "maxDrawdownRAt005Cost": 3.481
+                },
+                {
+                  "scoreBand": "80-100",
+                  "signals": 43,
+                  "ordersPlaced": 6,
+                  "unfilledOrders": 4,
+                  "trades": 2,
+                  "wins": 2,
+                  "winRate": 100,
+                  "averageGrossR": 2.337,
+                  "expectancyNetRAt0Cost": 2.337,
+                  "expectancyNetRAt005Cost": 2.287,
+                  "expectancyNetRAt010Cost": 2.237,
+                  "maxDrawdownRAt005Cost": 0
+                }
+              ]
+            },
+            {
+              "name": "out-of-sample",
+              "from": "2026-09-21 11:30:00",
+              "to": "2026-10-07 02:15:00",
+              "buckets": [
+                {
+                  "scoreBand": "0-39",
+                  "signals": 1093,
+                  "ordersPlaced": 117,
+                  "unfilledOrders": 51,
+                  "trades": 66,
+                  "wins": 22,
+                  "winRate": 33.3,
+                  "averageGrossR": -0.011,
+                  "expectancyNetRAt0Cost": -0.011,
+                  "expectancyNetRAt005Cost": -0.061,
+                  "expectancyNetRAt010Cost": -0.111,
+                  "maxDrawdownRAt005Cost": 15.8
+                },
+                {
+                  "scoreBand": "40-59",
+                  "signals": 290,
+                  "ordersPlaced": 30,
+                  "unfilledOrders": 15,
+                  "trades": 15,
+                  "wins": 5,
+                  "winRate": 33.3,
+                  "averageGrossR": 0.077,
+                  "expectancyNetRAt0Cost": 0.077,
+                  "expectancyNetRAt005Cost": 0.027,
+                  "expectancyNetRAt010Cost": -0.023,
+                  "maxDrawdownRAt005Cost": 4.2
+                },
+                {
+                  "scoreBand": "60-79",
+                  "signals": 59,
+                  "ordersPlaced": 4,
+                  "unfilledOrders": 4,
+                  "trades": 0,
+                  "wins": 0,
+                  "winRate": null,
+                  "averageGrossR": null,
+                  "expectancyNetRAt0Cost": null,
+                  "expectancyNetRAt005Cost": null,
+                  "expectancyNetRAt010Cost": null,
+                  "maxDrawdownRAt005Cost": null
+                },
+                {
+                  "scoreBand": "80-100",
+                  "signals": 18,
+                  "ordersPlaced": 2,
+                  "unfilledOrders": 2,
+                  "trades": 0,
+                  "wins": 0,
+                  "winRate": null,
+                  "averageGrossR": null,
+                  "expectancyNetRAt0Cost": null,
+                  "expectancyNetRAt005Cost": null,
+                  "expectancyNetRAt010Cost": null,
+                  "maxDrawdownRAt005Cost": null
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "assumptions": [
+        "Entry signals are evaluated after each closed M15 candle; H1 candles are admitted only after their modeled close time.",
+        "Historical news is unavailable. The primary news-neutral score assumes riskScore 0; a parallel scenario assumes UNAVAILABLE with riskScore 60.",
+        "Signals are counted at every eligible candle. Only one pending/open order per pair is simulated at a time, without score-based rejection.",
+        "Limit entry is the planned entry-zone midpoint, active for the next 8 M15 bars; unfilled orders expire.",
+        "After fill, TP2 is the target and SL the stop; maximum hold is 32 M15 bars. Same-bar stop/target ambiguity is resolved as a stop first.",
+        "Spread and slippage are unavailable. Expectancy is shown at 0R, 0.05R, and 0.10R round-trip friction per trade.",
+        "Drawdown is sequential closed-trade drawdown in R for this one-position simulation, not a broker-equity forecast.",
+        "The first 70% of M15 history is the calibration period; the final 30% is a chronological holdout. No weights or thresholds were fitted on the holdout.",
+        "The replay uses the latest provider history returned for each request; actual history length can be shorter than requested and this is not a tick-level execution simulation.",
+        "The final 40 M15 bars of each split are excluded as signal times so pending entries and the maximum holding window finish inside their own period.",
+        "Provider timestamps have no explicit timezone in the candle rows; calculations assume H1 and M15 use the same provider timezone and reports retain the original timestamp strings."
+      ]
+    }
+  ],
+  "dataErrors": [],
+  "findings": [
+    "News-neutral out-of-sample score band 0-39: 278 trades, 25.2% win rate, -0.290R expectancy after assumed 0.05R friction.",
+    "News-neutral out-of-sample score band 40-59: 113 trades, 34.5% win rate, 0.013R expectancy after assumed 0.05R friction.",
+    "News-neutral out-of-sample score band 60-79: 31 trades, 35.5% win rate, 0.109R expectancy after assumed 0.05R friction.",
+    "News-neutral out-of-sample score band 80-100: 5 trades, 20.0% win rate, -0.450R expectancy after assumed 0.05R friction.",
+    "These results are a short-window replay, not proof of future profitability or a calibrated win probability; preserve the per-pair drawdowns and sample counts when interpreting aggregate bands.",
+    "The current Risk Reward checklist uses TP2, which is constructed at 2R from planned entry; its 5-point score contribution is therefore not an independent reward-quality measurement.",
+    "No score weights, thresholds, or setup gates were changed during this validation, so the holdout remains untouched."
+  ],
+  "limitations": [
+    "Historical news is not archived by the configured headline/calendar sources, so results include news-neutral and news-unavailable score scenarios rather than reconstructed historical news.",
+    "The provider returns a rolling history window; M15 coverage determines the effective replay horizon.",
+    "OHLC data cannot model exact intrabar sequence, bid/ask spread, queue position, or real slippage."
+  ]
+}

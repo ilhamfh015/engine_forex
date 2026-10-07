@@ -9,6 +9,7 @@
     "start": "node --enable-source-maps ./dist/index.mjs",
     "test:trend": "node ./run-tests.mjs",
     "test": "../../scripts/node_modules/.bin/tsx --test src/services/*.test.ts",
+    "backtest:confidence": "../../scripts/node_modules/.bin/tsx src/services/backtest-cli.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

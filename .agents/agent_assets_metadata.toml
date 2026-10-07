@@ -1,0 +1,16 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "z-EX9oo3Ska7ejr0ip7Q0"
+uri = "file://artifacts/api-server/backtest-results/confidence-backtest-2026-10-07.csv"
+type = "table"
+title = "Entry confidence backtest — hasil per skor"
+description = "Hasil M15 dengan konfirmasi H1 untuk lima pair, terpisah antara calibration dan out-of-sample, dua asumsi berita, dan empat rentang skor. Kolom mencakup jumlah trade, win rate, expectancy R, dan drawdown R."
+logical_id = "1e0e76ec-c937-44dd-9345-3d9fece0f380"
+content_hash = "sha256:41e5c789e2027057250ad5b5d866df61701c0195a5c7ba0e1841e986f00f4788"
+size = 7095
+mtime_ms = 1791340379776
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:a5c0bda3-ceed-4449-b589-0e5f9b2124a7/1e0e76ec-c937-44dd-9345-3d9fece0f380/19d372a7-71ad-46fc-84f8-641eba0c256d"
+storage_version_token = "1791340434396998"
+content_type = "text/csv"
