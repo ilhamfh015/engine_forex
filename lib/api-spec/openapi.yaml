@@ -219,16 +219,16 @@ components:
           description: Stop-loss price level
         tp1:
           type: number
-          description: Take-profit 1 (1:1 RR)
+          description: Take-profit 1 (up to 1:1 RR, capped by nearby opposing structure)
         tp2:
           type: number
-          description: Take-profit 2 (1:2 RR)
+          description: Take-profit 2 (up to 1:2 RR, capped by nearby opposing structure)
         tp3:
           type: number
-          description: Take-profit 3 (1:3 RR or next key swing)
+          description: Take-profit 3 (up to 1:3 RR, capped by nearby opposing structure)
         riskRewardRatio:
           type: number
-          description: Reward/Risk ratio to TP2 from current price
+          description: Planned reward/risk ratio from the entry midpoint to TP2
         riskPoints:
           type: number
           description: Risk in price points (entry zone mid to SL)

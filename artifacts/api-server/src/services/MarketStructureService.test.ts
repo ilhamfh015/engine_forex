@@ -133,6 +133,10 @@ test("trade setup levels stay finite and ordered in the trade direction", () => 
     );
 
     assertFiniteNumbers(setup);
+    assert.equal(
+      setup.riskPoints,
+      Number(Math.abs(setup.entryPrice - setup.stopLoss).toFixed(5)),
+    );
     if (direction === "BUY") {
       assert.ok(setup.stopLoss < setup.entryPrice);
       assert.ok(setup.entryPrice < setup.tp1);
@@ -143,6 +147,29 @@ test("trade setup levels stay finite and ordered in the trade direction", () => 
       assert.ok(setup.tp1 >= setup.tp2 && setup.tp2 >= setup.tp3);
     }
   }
+});
+
+test("nearby opposing structure caps TP2 and changes the planned reward/risk", () => {
+  const candles = makeCandles([
+    ...BULLISH_CLOSES,
+    104,
+    104.5,
+    105,
+    106,
+    106.8,
+    107.2,
+    106.9,
+    106.5,
+    106.4,
+  ]);
+  const setup = buildTradeSetup("EURUSD", "BUY", candles, "TRENDING", "TRENDING", "BUY");
+
+  assert.ok(setup.tp2 < setup.entryPrice + 2 * setup.riskPoints);
+  assert.equal(
+    setup.riskRewardRatio,
+    Number(((setup.tp2 - setup.entryPrice) / setup.riskPoints).toFixed(2)),
+  );
+  assert.ok(setup.tp1 <= setup.tp2 && setup.tp2 <= setup.tp3);
 });
 
 test("misaligned trends and high news risk produce a caution, not NO_TRADE", () => {

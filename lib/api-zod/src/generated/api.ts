@@ -110,10 +110,10 @@ export const GetAnalysisResponse = zod.object({
   "entryPrice": zod.number().describe('Reference entry at the zone midpoint'),
   "entryZoneLabel": zod.string().describe('Status label — e.g. IN ZONE, TUNGGU PULLBACK'),
   "stopLoss": zod.number().describe('Stop-loss price level'),
-  "tp1": zod.number().describe('Take-profit 1 (1:1 RR)'),
-  "tp2": zod.number().describe('Take-profit 2 (1:2 RR)'),
-  "tp3": zod.number().describe('Take-profit 3 (1:3 RR or next key swing)'),
-  "riskRewardRatio": zod.number().describe('Reward\/Risk ratio to TP2 from current price'),
+  "tp1": zod.number().describe('Take-profit 1 (up to 1:1 RR, capped by nearby opposing structure)'),
+  "tp2": zod.number().describe('Take-profit 2 (up to 1:2 RR, capped by nearby opposing structure)'),
+  "tp3": zod.number().describe('Take-profit 3 (up to 1:3 RR, capped by nearby opposing structure)'),
+  "riskRewardRatio": zod.number().describe('Planned reward\/risk ratio from the entry midpoint to TP2'),
   "riskPoints": zod.number().describe('Risk in price points (entry zone mid to SL)'),
   "pipSize": zod.number().describe('Pip\/point size for this instrument')
 }).describe('Optimal trade setup levels — entry zone, SL, and TP targets')

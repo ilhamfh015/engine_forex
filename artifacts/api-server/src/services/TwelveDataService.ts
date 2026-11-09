@@ -20,6 +20,15 @@ export interface Candle {
   volume: number;
 }
 
+interface TwelveDataValue {
+  datetime?: unknown;
+  open?: unknown;
+  high?: unknown;
+  low?: unknown;
+  close?: unknown;
+  volume?: unknown;
+}
+
 export const PAIR_TO_SYMBOL: Record<string, string> = {
   EURUSD: "EUR/USD",
   GBPUSD: "GBP/USD",
@@ -63,6 +72,7 @@ const inFlight = new Map<string, Promise<Candle[]>>();
 // ─── Rate limiter: sliding-window 7 req/min ───────────────────────────────────
 const REQUEST_TIMESTAMPS: number[] = [];
 const MAX_REQUESTS_PER_MINUTE = 7;
+const REQUEST_TIMEOUT_MS = 10_000;
 
 async function waitForRateLimit(): Promise<void> {
   const windowStart = Date.now() - 60_000;
@@ -112,34 +122,65 @@ async function fetchFromApi(
     `&outputsize=${count}` +
     `&apikey=${apiKey}`;
 
+  const request = () => fetch(url, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+
   await waitForRateLimit();
-  let res = await fetch(url);
+  let res = await request();
 
   if (res.status === 429) {
     await new Promise((r) => setTimeout(r, 12_000));
     await waitForRateLimit();
-    res = await fetch(url);
+    res = await request();
   }
   if (!res.ok) throw new Error(`Twelve Data HTTP ${res.status}: ${res.statusText}`);
 
   const data = (await res.json()) as {
     status?: string; message?: string;
-    values?: Array<{ datetime: string; open: string; high: string; low: string; close: string; volume?: string }>;
+    values?: TwelveDataValue[];
   };
-  if (data.status === "error" || !data.values || data.values.length === 0) {
+  if (data.status === "error" || !Array.isArray(data.values) || data.values.length === 0) {
     throw new Error(`Twelve Data error: ${data.message ?? "No data"}`);
   }
 
-  const candles: Candle[] = data.values.slice().reverse().map((v) => ({
-    datetime: v.datetime,
-    open: parseFloat(v.open),
-    high: parseFloat(v.high),
-    low: parseFloat(v.low),
-    close: parseFloat(v.close),
-    volume: parseFloat(v.volume ?? "0"),
-  }));
+  const candles = parseTwelveDataCandles(data.values);
 
   cache.set(cacheKey, { candles, expiresAt: Date.now() + CACHE_TTL_MS[timeframe] });
+  return candles;
+}
+
+export function parseTwelveDataCandles(values: TwelveDataValue[]): Candle[] {
+  const candles = values.slice().reverse().map((value, index): Candle => {
+    const candle: Candle = {
+      datetime: typeof value.datetime === "string" ? value.datetime.trim() : "",
+      open: Number(value.open),
+      high: Number(value.high),
+      low: Number(value.low),
+      close: Number(value.close),
+      volume: Number(value.volume ?? "0"),
+    };
+    const prices = [candle.open, candle.high, candle.low, candle.close];
+
+    if (!candle.datetime || !Number.isFinite(Date.parse(candle.datetime))) {
+      throw new Error(`Twelve Data returned an invalid candle timestamp at index ${index}`);
+    }
+    if (
+      prices.some((price) => !Number.isFinite(price) || price <= 0) ||
+      !Number.isFinite(candle.volume) ||
+      candle.volume < 0 ||
+      candle.high < Math.max(candle.open, candle.close, candle.low) ||
+      candle.low > Math.min(candle.open, candle.close, candle.high)
+    ) {
+      throw new Error(`Twelve Data returned invalid OHLCV values at index ${index}`);
+    }
+    return candle;
+  });
+
+  for (let index = 1; index < candles.length; index++) {
+    if (Date.parse(candles[index].datetime) <= Date.parse(candles[index - 1].datetime)) {
+      throw new Error("Twelve Data returned candles that are not in chronological order");
+    }
+  }
+
   return candles;
 }
 

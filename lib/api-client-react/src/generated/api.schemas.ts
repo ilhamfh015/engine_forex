@@ -121,13 +121,13 @@ export interface TradeSetup {
   entryZoneLabel: string;
   /** Stop-loss price level */
   stopLoss: number;
-  /** Take-profit 1 (1:1 RR) */
+  /** Take-profit 1 (up to 1:1 RR, capped by nearby opposing structure) */
   tp1: number;
-  /** Take-profit 2 (1:2 RR) */
+  /** Take-profit 2 (up to 1:2 RR, capped by nearby opposing structure) */
   tp2: number;
-  /** Take-profit 3 (1:3 RR or next key swing) */
+  /** Take-profit 3 (up to 1:3 RR, capped by nearby opposing structure) */
   tp3: number;
-  /** Reward/Risk ratio to TP2 from current price */
+  /** Planned reward/risk ratio from the entry midpoint to TP2 */
   riskRewardRatio: number;
   /** Risk in price points (entry zone mid to SL) */
   riskPoints: number;

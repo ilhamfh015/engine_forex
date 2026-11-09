@@ -95,23 +95,25 @@ router.get("/analysis/:pair", async (req: Request, res: Response) => {
     );
 
     // 6. Persist snapshot to database (fire-and-forget, do not block response)
-    db.insert(marketAnalysisTable)
-      .values({
-        pair,
-        trendH1Direction: trendH1.direction,
-        trendH1Structure: trendH1.structure,
-        trendH1Explanation: trendH1.explanation,
-        trendM15Direction: trendM15.direction,
-        trendM15Structure: trendM15.structure,
-        trendM15Explanation: trendM15.explanation,
-        confidence: score,
-        confidenceLevel: level,
-        bias: summary.bias,
-        reason: summary.reason,
-      })
-      .catch((err) => {
-        req.log.warn({ err }, "Failed to persist analysis snapshot");
-      });
+    if (db) {
+      db.insert(marketAnalysisTable)
+        .values({
+          pair,
+          trendH1Direction: trendH1.direction,
+          trendH1Structure: trendH1.structure,
+          trendH1Explanation: trendH1.explanation,
+          trendM15Direction: trendM15.direction,
+          trendM15Structure: trendM15.structure,
+          trendM15Explanation: trendM15.explanation,
+          confidence: score,
+          confidenceLevel: level,
+          bias: summary.bias,
+          reason: summary.reason,
+        })
+        .catch((err) => {
+          req.log.warn({ err }, "Failed to persist analysis snapshot");
+        });
+    }
 
     // 7. Return full analysis
     res.json({
@@ -150,6 +152,11 @@ router.get("/analysis/:pair/history", async (req: Request, res: Response) => {
   }
 
   const { pair } = parsed.data;
+
+  if (!db) {
+    res.status(503).json({ error: "Analysis history is unavailable because DATABASE_URL is not configured." });
+    return;
+  }
 
   try {
     const rows = await db

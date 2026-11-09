@@ -4,15 +4,24 @@ import type { TradeSetup } from '@workspace/api-client-react';
 
 interface TradeSetupCardProps {
   setup: TradeSetup;
+  pair: string;
   index: number;
 }
 
-function formatPrice(value: number, pipSize: number) {
-  const decimals = pipSize >= 1 ? 0 : pipSize === 0.01 ? 2 : 5;
+const PRICE_DECIMALS: Record<string, number> = {
+  EURUSD: 5,
+  GBPUSD: 5,
+  USDJPY: 3,
+  XAUUSD: 2,
+  BTCUSD: 0,
+};
+
+function formatPrice(value: number, pair: string) {
+  const decimals = PRICE_DECIMALS[pair] ?? 5;
   return value.toFixed(decimals);
 }
 
-export function TradeSetupCard({ setup, index }: TradeSetupCardProps) {
+export function TradeSetupCard({ setup, pair, index }: TradeSetupCardProps) {
   const isBuy = setup.direction === 'BUY';
   const isReady = setup.status === 'READY';
   const isCaution = setup.status === 'CAUTION';
@@ -52,40 +61,40 @@ export function TradeSetupCard({ setup, index }: TradeSetupCardProps) {
           <div className="rounded-lg border border-card-border bg-card/60 p-3">
             <p className="text-xs text-muted-foreground">Current</p>
             <p className="mt-1 font-mono text-sm font-semibold text-foreground">
-              {formatPrice(setup.currentPrice, setup.pipSize)}
+              {formatPrice(setup.currentPrice, pair)}
             </p>
           </div>
           <div className="rounded-lg border border-primary/25 bg-primary/5 p-3 md:col-span-2">
             <p className="text-xs text-muted-foreground">Ideal Entry Zone</p>
             <p className={`mt-1 font-mono text-sm font-bold ${accent}`}>
-              {formatPrice(setup.entryZoneMin, setup.pipSize)} – {formatPrice(setup.entryZoneMax, setup.pipSize)}
+              {formatPrice(setup.entryZoneMin, pair)} – {formatPrice(setup.entryZoneMax, pair)}
             </p>
             <p className="mt-1 text-[11px] text-muted-foreground">
-              Ref: {formatPrice(setup.entryPrice, setup.pipSize)}
+              Ref: {formatPrice(setup.entryPrice, pair)}
             </p>
           </div>
           <div className="rounded-lg border border-destructive/25 bg-destructive/5 p-3">
             <p className="flex items-center gap-1 text-xs text-muted-foreground"><ArrowDown className="h-3 w-3" /> Stop Loss</p>
             <p className="mt-1 font-mono text-sm font-bold text-destructive">
-              {formatPrice(setup.stopLoss, setup.pipSize)}
+              {formatPrice(setup.stopLoss, pair)}
             </p>
           </div>
           <div className="rounded-lg border border-primary/25 bg-primary/5 p-3">
             <p className="flex items-center gap-1 text-xs text-muted-foreground"><ArrowUp className="h-3 w-3" /> TP1 / TP2</p>
             <p className="mt-1 font-mono text-sm font-bold text-primary">
-              {formatPrice(setup.tp1, setup.pipSize)} / {formatPrice(setup.tp2, setup.pipSize)}
+              {formatPrice(setup.tp1, pair)} / {formatPrice(setup.tp2, pair)}
             </p>
           </div>
           <div className="rounded-lg border border-primary/25 bg-primary/5 p-3">
             <p className="flex items-center gap-1 text-xs text-muted-foreground"><ArrowUp className="h-3 w-3" /> TP3 / RR</p>
             <p className="mt-1 font-mono text-sm font-bold text-primary">
-              {formatPrice(setup.tp3, setup.pipSize)} / 1:{Math.max(0, setup.riskRewardRatio).toFixed(2)}
+              {formatPrice(setup.tp3, pair)} / 1:{Math.max(0, setup.riskRewardRatio).toFixed(2)}
             </p>
           </div>
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
-          <span>Risk: <strong className="font-mono text-foreground">{formatPrice(setup.riskPoints, setup.pipSize)} pts</strong></span>
+          <span>Risk: <strong className="font-mono text-foreground">{formatPrice(setup.riskPoints, pair)} pts</strong></span>
           <span className="text-foreground">{setup.statusReason}</span>
         </div>
       </div>

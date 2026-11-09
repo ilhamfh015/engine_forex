@@ -4,7 +4,7 @@
  * Stores snapshots of market analysis for each forex pair.
  * Used for history tracking and future ML training datasets.
  */
-import { pgTable, serial, varchar, real, text, timestamp } from "drizzle-orm/pg-core";
+import { index, pgTable, serial, varchar, real, text, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -46,7 +46,9 @@ export const marketAnalysisTable = pgTable("market_analysis", {
 
   /** When this snapshot was recorded */
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => [
+  index("market_analysis_pair_created_at_idx").on(table.pair, table.createdAt),
+]);
 
 export const insertMarketAnalysisSchema = createInsertSchema(marketAnalysisTable).omit({
   id: true,

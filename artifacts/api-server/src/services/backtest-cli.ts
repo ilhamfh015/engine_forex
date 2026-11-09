@@ -75,7 +75,7 @@ const findings = [
     return `News-neutral out-of-sample score band ${band}: ${aggregate.trades} trades, ${winRate}% win rate, ${expectancy}R expectancy after assumed 0.05R friction.`;
   }),
   "These results are a short-window replay, not proof of future profitability or a calibrated win probability; preserve the per-pair drawdowns and sample counts when interpreting aggregate bands.",
-  "The current Risk Reward checklist uses TP2, which is constructed at 2R from planned entry; its 5-point score contribution is therefore not an independent reward-quality measurement.",
+  "The Risk Reward checklist scores the planned-entry-to-TP2 distance; nearby opposing structure can cap TP2 below 2R, so review this score alongside its sample count and costs.",
   "No score weights, thresholds, or setup gates were changed during this validation, so the holdout remains untouched.",
 ];
 const payload = {

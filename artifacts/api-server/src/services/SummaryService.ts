@@ -46,8 +46,8 @@ function buildReason(
   }
 
   // Sentence 2: price position context
-  const nearLevel = checklist.find((c) => c.label.includes("HL/LH") || c.label.includes("HL"));
-  if (nearLevel?.passed) {
+  const inValueZone = checklist.find((c) => c.label === "Harga di Value Zone");
+  if (inValueZone?.passed) {
     const levelLabel = h1Direction === "BUY" ? "Higher Low" : "Lower High";
     lines.push(`Harga sedang retracement mendekati area ${levelLabel}.`);
   } else {

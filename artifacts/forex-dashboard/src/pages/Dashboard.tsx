@@ -21,7 +21,7 @@ export default function Dashboard() {
   const [selectedPair, setSelectedPair] = useState<'EURUSD' | 'GBPUSD' | 'USDJPY' | 'XAUUSD' | 'BTCUSD'>('EURUSD');
   const queryClient = useQueryClient();
 
-  const { data: analysis, isLoading: isLoadingAnalysis, error: analysisError } = useGetAnalysis(
+  const { data: analysis, isLoading: isLoadingAnalysis, isFetching: isFetchingAnalysis, error: analysisError } = useGetAnalysis(
     selectedPair,
     {
       query: {
@@ -32,7 +32,7 @@ export default function Dashboard() {
     }
   );
 
-  const { data: allPairs, isLoading: isLoadingPairs } = useGetAllPairsSummary({
+  const { data: allPairs } = useGetAllPairsSummary({
     query: {
       queryKey: getGetAllPairsSummaryQueryKey(),
       // The pair overview uses the same 15m/60m Twelve Data cache. Do not
@@ -56,7 +56,7 @@ export default function Dashboard() {
     return <LoadingSpinner fullPage />;
   }
 
-  if (analysisError) {
+  if (!analysis && analysisError) {
     return (
       <div className="min-h-screen w-full flex items-center justify-center bg-background">
         <div className="text-center">
@@ -83,11 +83,26 @@ export default function Dashboard() {
         selectedPair={selectedPair}
         onPairChange={handlePairChange}
         onRefresh={handleRefresh}
-        isRefreshing={isLoadingAnalysis}
+        isRefreshing={isFetchingAnalysis}
         lastUpdate={analysis.timestamp}
       />
 
       <main className="container mx-auto px-4 py-8 space-y-8">
+        {analysisError && (
+          <div
+            role="alert"
+            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-foreground"
+          >
+            <span>Refresh failed. Showing the last successful analysis; verify data freshness before using it.</span>
+            <button
+              onClick={handleRefresh}
+              className="font-semibold text-primary underline-offset-4 hover:underline"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
         {/* Main Analysis Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <TrendCard timeframe="H1" trend={analysis.trendH1} index={0} />
@@ -101,7 +116,7 @@ export default function Dashboard() {
           <SummaryCard summary={analysis.summary} index={3} />
         </div>
 
-        <TradeSetupCard setup={analysis.tradeSetup} index={4} />
+        <TradeSetupCard setup={analysis.tradeSetup} pair={selectedPair} index={4} />
         <NewsRiskCard risk={analysis.newsRisk} index={5} />
 
         {/* All Pairs Overview */}

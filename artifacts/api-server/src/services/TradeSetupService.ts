@@ -4,7 +4,7 @@
  * Produces a plan, not a blind market order:
  *   - entry zone around the M15 EMA20/value area
  *   - stop beyond the latest confirmed structural swing plus ATR buffer
- *   - TP1/TP2/TP3 at 1R/2R/3R, capped by the next opposing swing when useful
+ *   - TP1/TP2/TP3 up to 1R/2R/3R, capped by the nearest opposing swing
  *
  * Readiness labels are advisory only: no market or news condition suppresses
  * the setup or blocks the response.
@@ -139,33 +139,39 @@ export function buildTradeSetup(
 
   // Structural invalidation. If no confirmed swing exists, use a conservative
   // ATR fallback rather than inventing a precise support/resistance level.
-  const stopLoss = direction === "BUY"
+  const structuralStop = direction === "BUY"
     ? fix(Math.min(entryZoneMin - 0.2 * atr, (lastSwingLow ?? entryZoneMin - atr) - 0.2 * atr))
     : fix(Math.max(entryZoneMax + 0.2 * atr, (lastSwingHigh ?? entryZoneMax + atr) + 0.2 * atr));
 
-  const risk = direction === "BUY"
-    ? Math.max(entryPrice - stopLoss, 0.6 * atr)
-    : Math.max(stopLoss - entryPrice, 0.6 * atr);
+  const minimumRiskDistance = 0.6 * atr;
+  const stopLoss = direction === "BUY"
+    ? fix(Math.min(structuralStop, entryPrice - minimumRiskDistance))
+    : fix(Math.max(structuralStop, entryPrice + minimumRiskDistance));
+  const risk = Math.abs(entryPrice - stopLoss);
 
-  const rawTp1 = direction === "BUY" ? entryPrice + risk : entryPrice - risk;
-  const rawTp2 = direction === "BUY" ? entryPrice + 2 * risk : entryPrice - 2 * risk;
-  const rawTp3 = direction === "BUY" ? entryPrice + 3 * risk : entryPrice - 3 * risk;
-
-  // Use the nearest opposing swing as a realistic TP3 only when it is beyond TP2.
+  const targetReference = direction === "BUY"
+    ? Math.max(entryPrice, currentPrice)
+    : Math.min(entryPrice, currentPrice);
   const nextResistance = swingHighs
-    .filter((high) => high > rawTp2)
+    .filter((high) => high > targetReference)
     .sort((a, b) => a - b)[0];
   const nextSupport = swingLows
-    .filter((low) => low < rawTp2)
+    .filter((low) => low < targetReference)
     .sort((a, b) => b - a)[0];
-  const tp1 = fix(rawTp1);
-  const tp2 = fix(rawTp2);
-  const tp3 = direction === "BUY"
-    ? fix(nextResistance !== undefined ? Math.min(nextResistance, rawTp3) : rawTp3)
-    : fix(nextSupport !== undefined ? Math.max(nextSupport, rawTp3) : rawTp3);
+  const capTarget = (rawTarget: number) => {
+    if (direction === "BUY" && nextResistance !== undefined) {
+      return fix(Math.min(nextResistance, rawTarget));
+    }
+    if (direction === "SELL" && nextSupport !== undefined) {
+      return fix(Math.max(nextSupport, rawTarget));
+    }
+    return fix(rawTarget);
+  };
+  const tp1 = capTarget(direction === "BUY" ? entryPrice + risk : entryPrice - risk);
+  const tp2 = capTarget(direction === "BUY" ? entryPrice + 2 * risk : entryPrice - 2 * risk);
+  const tp3 = capTarget(direction === "BUY" ? entryPrice + 3 * risk : entryPrice - 3 * risk);
 
-  // RR must describe the proposed plan (zone midpoint → TP2), not the
-  // current price while the setup is waiting for a pullback/rally.
+  // RR describes the planned entry midpoint to TP2, including structural caps.
   const riskRewardRatio = Number(
     ((direction === "BUY" ? tp2 - entryPrice : entryPrice - tp2) / risk).toFixed(2),
   );
