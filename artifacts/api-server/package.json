@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "corepack pnpm run build && corepack pnpm run start",
     "build": "node ./build.mjs",
-    "start": "node --enable-source-maps ./dist/server.mjs",
+    "start": "node --enable-source-maps ./dist/local-runner.mjs",
     "test:trend": "node ./run-tests.mjs",
     "test": "tsx --test src/services/*.test.ts",
     "backtest:confidence": "tsx src/services/backtest-cli.ts",
