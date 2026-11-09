@@ -30,7 +30,7 @@ The Vite dev server proxies `/api` requests to `http://127.0.0.1:3001` by defaul
 
 ## Deploy to Vercel
 
-Import this repository into Vercel with the **repository root** as the project root. [vercel.json](./vercel.json) builds the Vite dashboard as static assets, routes `/api/*` to one Express serverless function, and serves the SPA for client-side routes.
+Import this repository into Vercel with the **repository root** as the project root. [vercel.json](./vercel.json) configures three services: the dashboard is public at `/`, the Express API is public at `/api/*`, and the mockup sandbox remains internal. The browser calls the API through the same-origin public rewrite, so no service binding is needed.
 
 Add these environment variables to Vercel for Preview and Production:
 
@@ -43,7 +43,7 @@ Before the first deployment, apply the database schema from a trusted local envi
 pnpm --filter @workspace/db run push
 ```
 
-The function uses one PostgreSQL connection per warm Vercel instance to avoid multiplying connection pools during scale-out. Vercel and the Twelve Data account each enforce their own function-duration and provider-quota limits.
+The API uses one PostgreSQL connection per warm Vercel instance to avoid multiplying connection pools during scale-out. Vercel and the Twelve Data account each enforce their own function-duration and provider-quota limits.
 
 The dashboard calls the API through same-origin `/api/*` routes; no public API URL or cross-origin setup is needed.
 

@@ -19,11 +19,17 @@ if (!process.env.DATABASE_URL) {
   logger.warn("DATABASE_URL is not set; analysis snapshots will not be stored and history requests will be unavailable.");
 }
 
-app.listen(port, "127.0.0.1", (err) => {
+const onListen = (err?: Error) => {
   if (err) {
     logger.error({ err }, "Error listening on port");
     process.exit(1);
   }
 
   logger.info({ port }, "Server listening");
-});
+};
+
+if (process.env.VERCEL) {
+  app.listen(port, onListen);
+} else {
+  app.listen(port, "127.0.0.1", onListen);
+}

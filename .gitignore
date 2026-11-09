@@ -47,3 +47,4 @@ Thumbs.db
 # Tool caches
 .cache/
 .local/
+/.vercel/
