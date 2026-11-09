@@ -4,9 +4,9 @@
     "api-server": {
       "root": "artifacts/api-server",
       "framework": "express",
-      "entrypoint": "src/index.ts",
+      "entrypoint": "src/app.ts",
       "functions": {
-        "src/index.ts": {
+        "src/app.ts": {
           "maxDuration": 300
         }
       }
