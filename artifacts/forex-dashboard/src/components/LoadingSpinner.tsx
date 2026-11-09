@@ -13,13 +13,19 @@ export function LoadingSpinner({ fullPage = false, size = 'md' }: LoadingSpinner
   };
 
   const spinner = (
-    <Loader2 className={`${sizeClasses[size]} animate-spin text-primary`} data-testid="loading-spinner" />
+    <Loader2 className={`${sizeClasses[size]} animate-spin text-primary`} data-testid="loading-spinner" aria-hidden="true" />
   );
 
   if (fullPage) {
     return (
-      <div className="min-h-screen w-full flex items-center justify-center bg-background" data-testid="loading-fullpage">
+      <div
+        className="dashboard-shell flex min-h-screen w-full flex-col items-center justify-center gap-3 bg-background"
+        data-testid="loading-fullpage"
+        role="status"
+        aria-live="polite"
+      >
         {spinner}
+        <span className="text-sm text-muted-foreground">Memuat analisis pasar…</span>
       </div>
     );
   }

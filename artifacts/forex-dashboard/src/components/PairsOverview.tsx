@@ -11,8 +11,8 @@ interface PairsOverviewProps {
 export function PairsOverview({ pairs, selectedPair, onPairSelect }: PairsOverviewProps) {
   return (
     <div className="space-y-4" data-testid="section-pairs-overview">
-      <h3 className="text-lg font-semibold text-foreground">All Pairs Overview</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+      <h4 className="text-sm font-medium text-muted-foreground">Ringkasan sinyal per instrumen</h4>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
         {pairs.map((pair, index) => {
           const isSelected = pair.pair === selectedPair;
           const isBuy = pair.bias === 'BUY';
@@ -27,23 +27,24 @@ export function PairsOverview({ pairs, selectedPair, onPairSelect }: PairsOvervi
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.3, delay: index * 0.05 }}
               onClick={() => onPairSelect(pair.pair)}
-              className={`relative p-4 rounded-lg border transition-all duration-200 hover:scale-105 ${
+              className={`relative rounded-xl border p-3 text-left transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:p-4 ${
                 isSelected
                   ? `${borderColor} ${bgColor} ring-2 ring-offset-2 ring-offset-background ${isBuy ? 'ring-primary' : 'ring-destructive'}`
                   : 'border-card-border bg-card/50 hover:bg-card'
               }`}
+              aria-pressed={isSelected}
               data-testid={`button-pair-${pair.pair}`}
             >
               <div className="text-left space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-foreground">{pair.pair}</span>
+                  <span className="font-mono text-sm font-semibold text-foreground">{pair.pair}</span>
                   {isBuy ? (
                     <TrendingUp className={`h-4 w-4 ${textColor}`} />
                   ) : (
                     <TrendingDown className={`h-4 w-4 ${textColor}`} />
                   )}
                 </div>
-                <div className={`text-xl font-bold ${textColor}`} data-testid={`text-pair-bias-${pair.pair}`}>
+                <div className={`text-base font-semibold ${textColor}`} data-testid={`text-pair-bias-${pair.pair}`}>
                   {pair.bias}
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -68,7 +69,7 @@ export function PairsOverview({ pairs, selectedPair, onPairSelect }: PairsOvervi
                     pair.newsStatus === 'HIGH_RISK'
                       ? 'font-semibold text-destructive'
                       : pair.newsStatus === 'CAUTION' || pair.newsStatus === 'UNAVAILABLE'
-                        ? 'font-semibold text-yellow-500'
+                        ? 'font-semibold text-amber-400'
                         : 'font-semibold text-primary'
                   }>
                     {pair.newsStatus === 'HIGH_RISK' ? 'HIGH RISK' : pair.newsStatus}

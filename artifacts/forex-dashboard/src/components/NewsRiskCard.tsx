@@ -8,10 +8,10 @@ interface NewsRiskCardProps {
 }
 
 const statusCopy: Record<NewsRisk['status'], { label: string; color: string; panel: string }> = {
-  CLEAR: { label: 'CLEAR', color: 'text-primary', panel: 'border-primary/25 bg-primary/5' },
-  CAUTION: { label: 'CAUTION', color: 'text-yellow-500', panel: 'border-yellow-500/25 bg-yellow-500/5' },
-  HIGH_RISK: { label: 'HIGH RISK', color: 'text-destructive', panel: 'border-destructive/25 bg-destructive/5' },
-  UNAVAILABLE: { label: 'UNAVAILABLE', color: 'text-yellow-500', panel: 'border-yellow-500/25 bg-yellow-500/5' },
+  CLEAR: { label: 'AMAN', color: 'text-primary', panel: 'border-primary/25 bg-primary/5' },
+  CAUTION: { label: 'WASPADA', color: 'text-amber-400', panel: 'border-amber-500/25 bg-amber-500/5' },
+  HIGH_RISK: { label: 'RISIKO TINGGI', color: 'text-destructive', panel: 'border-destructive/25 bg-destructive/5' },
+  UNAVAILABLE: { label: 'TIDAK TERSEDIA', color: 'text-amber-400', panel: 'border-amber-500/25 bg-amber-500/5' },
 };
 
 function formatAge(publishedAt: string) {
@@ -47,18 +47,18 @@ export function NewsRiskCard({ risk, index }: NewsRiskCardProps) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.1 }}
-      className={`rounded-xl border ${copy.panel} backdrop-blur-sm`}
+      className={`dashboard-panel border-l-2 ${copy.panel}`}
       data-testid="card-news-risk"
     >
-      <div className="p-6">
+      <div className="p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
               <Newspaper className="h-5 w-5 text-muted-foreground" />
-              <h2 className="text-lg font-semibold text-foreground">News Risk Advisory</h2>
+              <h2 className="text-base font-semibold text-foreground">Risiko berita</h2>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              Headline relevan dalam {safeRisk.windowMinutes} menit terakhir — bukan prediksi harga.
+              Berita dalam {safeRisk.windowMinutes} menit terakhir sebagai konteks risiko, bukan prediksi harga.
             </p>
           </div>
           <div className={`flex items-center gap-2 rounded-full border px-3 py-1.5 ${copy.panel}`}>
@@ -119,7 +119,7 @@ export function NewsRiskCard({ risk, index }: NewsRiskCardProps) {
                     </span>
                   </span>
                   <span className={`shrink-0 text-right text-xs font-bold ${
-                    event.impact === 'HIGH' ? 'text-destructive' : event.impact === 'MEDIUM' ? 'text-yellow-500' : 'text-muted-foreground'
+                    event.impact === 'HIGH' ? 'text-destructive' : event.impact === 'MEDIUM' ? 'text-amber-400' : 'text-muted-foreground'
                   }`}>
                     <span className="block">{event.impact}</span>
                     <span className="mt-1 block font-mono text-foreground">{formatJakarta(event.scheduledAt)}</span>

@@ -1,6 +1,5 @@
 import { motion } from 'framer-motion';
 import { CheckCircle, XCircle } from 'lucide-react';
-import { Progress } from '@/components/ui/progress';
 import type { ChecklistItem } from '@workspace/api-client-react';
 
 interface ConfidenceCardProps {
@@ -13,19 +12,19 @@ interface ConfidenceCardProps {
 export function ConfidenceCard({ confidence, confidenceLevel, checklist, index }: ConfidenceCardProps) {
   const getConfidenceColor = () => {
     if (confidence >= 71) return 'text-primary';
-    if (confidence >= 41) return 'text-yellow-500';
+    if (confidence >= 41) return 'text-amber-400';
     return 'text-destructive';
   };
 
   const getBgColor = () => {
     if (confidence >= 71) return 'bg-primary/5';
-    if (confidence >= 41) return 'bg-yellow-500/5';
+    if (confidence >= 41) return 'bg-amber-500/5';
     return 'bg-destructive/5';
   };
 
   const getBorderColor = () => {
     if (confidence >= 71) return 'border-primary/20';
-    if (confidence >= 41) return 'border-yellow-500/20';
+    if (confidence >= 41) return 'border-amber-500/20';
     return 'border-destructive/20';
   };
 
@@ -34,70 +33,74 @@ export function ConfidenceCard({ confidence, confidenceLevel, checklist, index }
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.1 }}
-      className={`relative overflow-hidden rounded-xl border ${getBorderColor()} ${getBgColor()} backdrop-blur-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-lg`}
+      className={`dashboard-panel min-w-0 border-t-2 ${getBorderColor()} p-4 sm:p-5 xl:col-span-2`}
       data-testid="card-confidence"
     >
-      <div className="p-6">
-        <h3 className="text-lg font-semibold mb-1 text-foreground">Entry Confluence Score</h3>
-        <p className="mb-5 text-xs text-muted-foreground">Skor heuristik 0–100, bukan probabilitas menang.</p>
+      <div>
+        <h3 className="text-sm font-semibold text-foreground">Skor konfluensi</h3>
+        <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">Skor heuristik, bukan probabilitas menang.</p>
         
-        <div className="flex flex-col items-center mb-8">
-          <div className="relative w-48 h-48 mb-4">
-            <svg className="w-full h-full transform -rotate-90">
+        <div className="mt-4 grid gap-5 xl:grid-cols-[150px_minmax(0,1fr)] xl:items-center">
+          <div className="flex flex-col items-center">
+          <div className="relative my-3 h-36 w-36">
+            <svg className="h-full w-full -rotate-90" viewBox="0 0 160 160" aria-hidden="true">
               <circle
-                cx="96"
-                cy="96"
-                r="88"
+                cx="80"
+                cy="80"
+                r="70"
                 stroke="currentColor"
-                strokeWidth="8"
+                strokeWidth="9"
                 fill="none"
-                className="text-muted/20"
+                className="text-muted/60"
               />
               <motion.circle
-                cx="96"
-                cy="96"
-                r="88"
+                cx="80"
+                cy="80"
+                r="70"
                 stroke="currentColor"
-                strokeWidth="8"
+                strokeWidth="9"
                 fill="none"
-                strokeDasharray={`${2 * Math.PI * 88}`}
+                strokeLinecap="round"
+                strokeDasharray={`${2 * Math.PI * 70}`}
                 className={getConfidenceColor()}
-                initial={{ strokeDashoffset: 2 * Math.PI * 88 }}
-                animate={{ strokeDashoffset: 2 * Math.PI * 88 * (1 - confidence / 100) }}
+                initial={{ strokeDashoffset: 2 * Math.PI * 70 }}
+                animate={{ strokeDashoffset: 2 * Math.PI * 70 * (1 - confidence / 100) }}
                 transition={{ duration: 1, ease: "easeOut" }}
               />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className={`text-5xl font-bold ${getConfidenceColor()}`} data-testid="text-confidence-percent">
-                {confidence}/100
+              <span className={`font-mono text-3xl font-semibold tabular-nums ${getConfidenceColor()}`} data-testid="text-confidence-percent">
+                {confidence}
               </span>
+              <span className="text-[11px] text-muted-foreground">dari 100</span>
             </div>
           </div>
-          <div className={`px-4 py-2 rounded-full ${getBgColor()} border ${getBorderColor()}`}>
+          <div className={`rounded-full border px-3 py-1 ${getBgColor()} ${getBorderColor()}`}>
             <span className={`text-sm font-semibold ${getConfidenceColor()}`} data-testid="text-confidence-level">
-              {confidenceLevel} confluence
+              Konfluensi {confidenceLevel === 'High' ? 'tinggi' : confidenceLevel === 'Medium' ? 'sedang' : 'rendah'}
             </span>
           </div>
         </div>
 
-        <div className="space-y-3">
-          <p className="text-sm font-medium text-muted-foreground mb-4">Entry Analysis</p>
+        <div className="min-w-0">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Faktor analisis</p>
+          <div className="grid gap-2 xl:grid-cols-2">
           {checklist.map((item, idx) => (
             <motion.div
               key={idx}
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.3, delay: 0.5 + idx * 0.1 }}
-              className="flex items-center gap-3 p-3 rounded-lg bg-card/50 border border-card-border"
+              className="flex items-center gap-2.5 rounded-lg border border-card-border bg-background/50 px-3 py-2.5"
               data-testid={`checklist-item-${idx}`}
             >
               {item.passed ? (
-                <CheckCircle className="h-5 w-5 text-primary flex-shrink-0" data-testid={`icon-check-${idx}`} />
+                <CheckCircle className="h-4 w-4 shrink-0 text-primary" data-testid={`icon-check-${idx}`} />
               ) : (
-                <XCircle className="h-5 w-5 text-destructive flex-shrink-0" data-testid={`icon-x-${idx}`} />
+                <XCircle className="h-4 w-4 shrink-0 text-destructive" data-testid={`icon-x-${idx}`} />
               )}
               <div className="flex-1">
-                <p className={`text-sm font-medium ${item.passed ? 'text-foreground' : 'text-muted-foreground'}`}>
+                <p className={`text-xs font-medium ${item.passed ? 'text-foreground' : 'text-muted-foreground'}`}>
                   {item.label}
                 </p>
               </div>
@@ -106,6 +109,8 @@ export function ConfidenceCard({ confidence, confidenceLevel, checklist, index }
               </span>
             </motion.div>
           ))}
+          </div>
+        </div>
         </div>
       </div>
     </motion.div>

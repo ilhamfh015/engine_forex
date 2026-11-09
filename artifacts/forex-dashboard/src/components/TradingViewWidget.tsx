@@ -57,12 +57,12 @@ export function TradingViewWidget({ pair }: TradingViewWidgetProps) {
 
   return (
     <div className="space-y-4" data-testid="section-chart">
-      <h3 className="text-lg font-semibold text-foreground">Live Chart</h3>
-      <div className="rounded-xl overflow-hidden border border-card-border bg-card/50 backdrop-blur-sm">
+      <h3 className="dashboard-section-title">Grafik live</h3>
+      <div className="dashboard-panel overflow-hidden">
         <div
           id={`tradingview_${pair}`}
           ref={containerRef}
-          style={{ height: '500px', width: '100%' }}
+          className="h-[min(68vh,560px)] min-h-[340px] w-full"
         />
       </div>
     </div>

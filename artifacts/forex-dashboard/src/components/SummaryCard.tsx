@@ -18,18 +18,18 @@ export function SummaryCard({ summary, index }: SummaryCardProps) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.1 }}
-      className={`relative overflow-hidden rounded-xl border ${borderColor} ${bgColor} backdrop-blur-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-lg`}
+      className={`dashboard-panel min-w-0 border-t-2 ${borderColor} p-4 sm:p-5`}
       data-testid="card-summary"
     >
-      <div className="p-6">
-        <div className="flex items-center gap-2 mb-6">
+      <div>
+        <div className="mb-5 flex items-center gap-2">
           <Target className="h-5 w-5 text-muted-foreground" />
-          <h3 className="text-lg font-semibold text-foreground">Market Summary</h3>
+          <h3 className="text-sm font-semibold text-foreground">Ringkasan pasar</h3>
         </div>
 
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Trading Bias</span>
+            <span className="text-xs text-muted-foreground">Arah dominan</span>
             <div className="flex items-center gap-2">
               {isBuy ? (
                 <TrendingUp className={`h-5 w-5 ${textColor}`} />
@@ -43,20 +43,20 @@ export function SummaryCard({ summary, index }: SummaryCardProps) {
           </div>
 
           <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Confluence score</span>
+            <span className="text-xs text-muted-foreground">Skor konfluensi</span>
             <div className="flex items-center gap-2">
-              <span className="text-xl font-bold text-foreground" data-testid="text-summary-confidence">
+              <span className="font-mono text-lg font-semibold tabular-nums text-foreground" data-testid="text-summary-confidence">
                 {summary.confidence}/100
               </span>
-              <span className={`text-sm px-2 py-1 rounded ${bgColor} ${textColor}`} data-testid="text-summary-level">
+              <span className={`rounded-full px-2 py-1 text-[11px] font-medium ${bgColor} ${textColor}`} data-testid="text-summary-level">
                 {summary.confidenceLevel}
               </span>
             </div>
           </div>
 
           <div className="pt-4 border-t border-card-border">
-            <p className="text-sm font-medium text-muted-foreground mb-2">Analysis</p>
-            <p className="text-sm text-foreground leading-relaxed whitespace-pre-line" data-testid="text-reason">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Catatan analisis</p>
+            <p className="text-xs leading-relaxed text-foreground/90 whitespace-pre-line" data-testid="text-reason">
               {summary.reason}
             </p>
           </div>

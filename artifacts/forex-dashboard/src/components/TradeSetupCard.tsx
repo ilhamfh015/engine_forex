@@ -35,36 +35,36 @@ export function TradeSetupCard({ setup, pair, index }: TradeSetupCardProps) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.1 }}
-      className={`rounded-xl border ${border} ${panel} backdrop-blur-sm`}
+      className={`dashboard-panel border-l-2 ${border}`}
       data-testid="card-trade-setup"
     >
-      <div className="p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
+      <div className="p-4 sm:p-5">
+        <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
               <Target className="h-5 w-5 text-muted-foreground" />
-              <h2 className="text-lg font-semibold text-foreground">Trade Plan</h2>
+              <h2 className="text-base font-semibold text-foreground">Rencana trading</h2>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              Zona entry berbasis EMA20 M15 dengan invalidasi struktur dan target ATR.
+              Zona entry berbasis EMA20 M15, struktur harga, dan target ATR.
             </p>
           </div>
           <div className={`flex items-center gap-2 rounded-full border px-3 py-1.5 ${border} ${panel}`}>
-            <Icon className={`h-4 w-4 ${isCaution ? 'text-yellow-500' : accent}`} />
-            <span className={`text-xs font-bold ${isCaution ? 'text-yellow-500' : accent}`}>
+            <Icon className={`h-4 w-4 ${isCaution ? 'text-amber-400' : accent}`} />
+            <span className={`text-xs font-bold ${isCaution ? 'text-amber-400' : accent}`}>
               {setup.entryZoneLabel}
             </span>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
-          <div className="rounded-lg border border-card-border bg-card/60 p-3">
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 xl:grid-cols-6">
+          <div className="rounded-xl border border-card-border bg-background/50 p-3">
             <p className="text-xs text-muted-foreground">Current</p>
             <p className="mt-1 font-mono text-sm font-semibold text-foreground">
               {formatPrice(setup.currentPrice, pair)}
             </p>
           </div>
-          <div className="rounded-lg border border-primary/25 bg-primary/5 p-3 md:col-span-2">
+          <div className="rounded-xl border border-primary/25 bg-primary/5 p-3 md:col-span-2">
             <p className="text-xs text-muted-foreground">Ideal Entry Zone</p>
             <p className={`mt-1 font-mono text-sm font-bold ${accent}`}>
               {formatPrice(setup.entryZoneMin, pair)} – {formatPrice(setup.entryZoneMax, pair)}
@@ -73,20 +73,20 @@ export function TradeSetupCard({ setup, pair, index }: TradeSetupCardProps) {
               Ref: {formatPrice(setup.entryPrice, pair)}
             </p>
           </div>
-          <div className="rounded-lg border border-destructive/25 bg-destructive/5 p-3">
-            <p className="flex items-center gap-1 text-xs text-muted-foreground"><ArrowDown className="h-3 w-3" /> Stop Loss</p>
+          <div className="rounded-xl border border-destructive/25 bg-destructive/5 p-3">
+            <p className="flex items-center gap-1 text-xs text-muted-foreground"><ArrowDown className="h-3 w-3" /> Stop loss</p>
             <p className="mt-1 font-mono text-sm font-bold text-destructive">
               {formatPrice(setup.stopLoss, pair)}
             </p>
           </div>
-          <div className="rounded-lg border border-primary/25 bg-primary/5 p-3">
-            <p className="flex items-center gap-1 text-xs text-muted-foreground"><ArrowUp className="h-3 w-3" /> TP1 / TP2</p>
+          <div className="rounded-xl border border-primary/25 bg-primary/5 p-3">
+            <p className="flex items-center gap-1 text-xs text-muted-foreground"><ArrowUp className="h-3 w-3" /> Target 1 / 2</p>
             <p className="mt-1 font-mono text-sm font-bold text-primary">
               {formatPrice(setup.tp1, pair)} / {formatPrice(setup.tp2, pair)}
             </p>
           </div>
-          <div className="rounded-lg border border-primary/25 bg-primary/5 p-3">
-            <p className="flex items-center gap-1 text-xs text-muted-foreground"><ArrowUp className="h-3 w-3" /> TP3 / RR</p>
+          <div className="rounded-xl border border-primary/25 bg-primary/5 p-3">
+            <p className="flex items-center gap-1 text-xs text-muted-foreground"><ArrowUp className="h-3 w-3" /> Target 3 / RR</p>
             <p className="mt-1 font-mono text-sm font-bold text-primary">
               {formatPrice(setup.tp3, pair)} / 1:{Math.max(0, setup.riskRewardRatio).toFixed(2)}
             </p>
