@@ -57,6 +57,46 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /analysis/{pair}/backtest:
+    get:
+      operationId: getAnalysisBacktest
+      tags: [analysis]
+      summary: Get confidence calibration backtest for a currency pair
+      description: Replays the M15 setup logic over a longer candle history and returns calibration plus chronological holdout results grouped by score band. The report is cached in memory and does not write to the database.
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [EURUSD, GBPUSD, USDJPY, XAUUSD, BTCUSD]
+          description: Currency pair to backtest
+      responses:
+        "200":
+          description: Confidence backtest report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfidenceBacktestReport"
+        "400":
+          description: Invalid pair
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Not enough candle history yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Backtest failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /analysis/{pair}/history:
     get:
       operationId: getAnalysisHistory
@@ -373,7 +413,7 @@ components:
           description: Heuristic confluence score 0-100; not a win probability
         confidenceLevel:
           type: string
-          enum: [High, Medium, Low]
+          enum: [High, Medium, Low, VeryLow]
         reason:
           type: string
           description: Multi-line narrative explaining the bias
@@ -403,7 +443,12 @@ components:
           description: Heuristic confluence score 0-100; not a win probability
         confidenceLevel:
           type: string
-          enum: [High, Medium, Low]
+          enum: [High, Medium, Low, VeryLow]
+        advisories:
+          type: array
+          description: Critical-gap warnings shown next to the score. They never change the score.
+          items:
+            type: string
         checklist:
           type: array
           items:
@@ -439,6 +484,164 @@ components:
         - newsRisk
         - tradeSetup
 
+    BacktestBucket:
+      type: object
+      description: Replay outcomes for one confidence-score band
+      properties:
+        scoreBand:
+          type: string
+          description: Score band label, e.g. 45-54
+        signals:
+          type: number
+          description: Number of eligible signal candles observed
+        ordersPlaced:
+          type: number
+          description: Number of simulated limit orders
+        unfilledOrders:
+          type: number
+          description: Orders that expired before being filled
+        trades:
+          type: number
+          description: Filled trades with a completed outcome
+        wins:
+          type: number
+          description: Trades with positive net R after friction
+        winRate:
+          type: [number, "null"]
+          description: Win rate percentage after friction
+        averageGrossR:
+          type: [number, "null"]
+          description: Average gross R per trade
+        expectancyNetRAt0Cost:
+          type: [number, "null"]
+          description: Average net R per trade with no friction
+        expectancyNetRAt005Cost:
+          type: [number, "null"]
+          description: Average net R per trade with 0.05R round-trip friction
+        expectancyNetRAt010Cost:
+          type: [number, "null"]
+          description: Average net R per trade with 0.10R round-trip friction
+        maxDrawdownRAt005Cost:
+          type: [number, "null"]
+          description: Sequential closed-trade drawdown in R at 0.05R friction
+      required:
+        - scoreBand
+        - signals
+        - ordersPlaced
+        - unfilledOrders
+        - trades
+        - wins
+        - winRate
+        - averageGrossR
+        - expectancyNetRAt0Cost
+        - expectancyNetRAt005Cost
+        - expectancyNetRAt010Cost
+        - maxDrawdownRAt005Cost
+
+    BacktestPeriod:
+      type: object
+      description: One chronological segment of the replay
+      properties:
+        name:
+          type: string
+          enum: [calibration, out-of-sample]
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        buckets:
+          type: array
+          items:
+            $ref: "#/components/schemas/BacktestBucket"
+        fineBuckets:
+          type: array
+          description: Outcomes grouped into five-point score bins, for calibration research
+          items:
+            $ref: "#/components/schemas/BacktestBucket"
+        scoreHistogram:
+          type: array
+          description: Signals observed per five-point score bin
+          items:
+            type: object
+            properties:
+              scoreBucket:
+                type: string
+                description: Five-point score bin, e.g. 60-64
+              signals:
+                type: number
+            required:
+              - scoreBucket
+              - signals
+      required:
+        - name
+        - from
+        - to
+        - buckets
+        - fineBuckets
+        - scoreHistogram
+
+    BacktestScenarioReport:
+      type: object
+      description: Replay results under one historical-news assumption
+      properties:
+        scoreScenario:
+          type: string
+          enum: [news-neutral, news-unavailable]
+        periods:
+          type: array
+          items:
+            $ref: "#/components/schemas/BacktestPeriod"
+      required:
+        - scoreScenario
+        - periods
+
+    ConfidenceBacktestReport:
+      type: object
+      description: Calibration and out-of-sample replay of the confidence score
+      properties:
+        pair:
+          type: string
+        entryTimeframe:
+          type: string
+          enum: [M15]
+        confirmationTimeframe:
+          type: string
+          enum: [H1]
+        candlesM15:
+          type: number
+        candlesH1:
+          type: number
+        m15From:
+          type: string
+          format: date-time
+        m15To:
+          type: string
+          format: date-time
+        splitAt:
+          type: string
+          format: date-time
+        scenarios:
+          type: array
+          items:
+            $ref: "#/components/schemas/BacktestScenarioReport"
+        assumptions:
+          type: array
+          items:
+            type: string
+      required:
+        - pair
+        - entryTimeframe
+        - confirmationTimeframe
+        - candlesM15
+        - candlesH1
+        - m15From
+        - m15To
+        - splitAt
+        - scenarios
+        - assumptions
+
     AnalysisSnapshot:
       type: object
       description: A stored analysis snapshot from history
@@ -460,7 +663,7 @@ components:
           type: number
         confidenceLevel:
           type: string
-          enum: [High, Medium, Low]
+          enum: [High, Medium, Low, VeryLow]
         bias:
           type: string
           enum: [BUY, SELL]
@@ -487,7 +690,7 @@ components:
           type: number
         confidenceLevel:
           type: string
-          enum: [High, Medium, Low]
+          enum: [High, Medium, Low, VeryLow]
         trendH1:
           type: string
           enum: [BUY, SELL]

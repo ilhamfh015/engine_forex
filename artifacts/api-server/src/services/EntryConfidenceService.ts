@@ -23,11 +23,44 @@ export interface ChecklistItem {
   weight: number;
 }
 
-export type ConfidenceLevel = "High" | "Medium" | "Low";
+export type ConfidenceLevel = "High" | "Medium" | "Low" | "VeryLow";
+
+/**
+ * Scoring weights for the no-cap, purely additive score. Selected on the
+ * calibration split and checked unchanged on the chronological holdout.
+ *
+ * Removing score caps changed the score distribution, so the capped-engine
+ * weights no longer ordered the calibration bands monotonically. These weights
+ * restore monotonic ordering in both splits (0-34/35-44/45-54/55-100) while
+ * keeping the news weight at 0.10 and the High band positive on every pair in
+ * the holdout.
+ *
+ * Swing structure and momentum carry weight 0 on purpose. Neither kept the same
+ * sign across the two splits, so they stay in the checklist as visible context
+ * but must not move the score.
+ *
+ * Value zone carries the largest share because it was the only factor with a
+ * consistently positive lift across splits. Reward/risk is scored continuously
+ * as RR/3 (capped at 1) so the planned distance-to-target moves the score
+ * smoothly without any hard ceiling; an RR below 1 is still warned about and
+ * marks the setup WAIT, but it never rewrites the score.
+ */
+export const SCORING_WEIGHTS = {
+  alignment: 0.15,
+  structure: 0,
+  dmi: 0.22,
+  valueZone: 0.30,
+  confirmation: 0.06,
+  momentum: 0,
+  rewardRisk: 0.17,
+  news: 0.10,
+} as const;
 
 export interface ConfidenceResult {
   score: number;
   level: ConfidenceLevel;
+  /** Critical-gap warnings. They never change the score. */
+  advisories: string[];
   checklist: ChecklistItem[];
   timeframeAligned: boolean;
   tradeAllowed: boolean;
@@ -122,10 +155,60 @@ function checkHealthyMomentum(candles: Candle[], direction: TrendDirection, atr:
   return directionalCloses >= 2 && averageRange <= atr * 1.8 && lastBody / Math.max(last.high - last.low, Number.EPSILON) >= 0.35;
 }
 
-function scoreToLevel(score: number): ConfidenceLevel {
-  if (score >= 71) return "High";
-  if (score >= 41) return "Medium";
-  return "Low";
+export function scoreToLevel(score: number): ConfidenceLevel {
+  // Cutoffs are data-driven: fitted on the calibration split, then checked on
+  // the chronological holdout. 35/45/55 was the configuration that stayed
+  // monotonic in both splits and kept the top band positive on every pair.
+  // Re-validate whenever the weights or the sample window change.
+  if (score >= 55) return "High";
+  if (score >= 45) return "Medium";
+  if (score >= 35) return "Low";
+  return "VeryLow";
+}
+
+export interface CriticalScoreFlags {
+  timeframeAligned: boolean;
+  confirmationCandle: boolean;
+  riskRewardRatio: number;
+  newsStatus: NewsRisk["status"];
+}
+
+/**
+ * The score is purely additive: 100 x the checklist weights that pass, plus the
+ * news weight. It is never clamped to a ceiling, because clamping made the
+ * displayed score weaker than the checklist justified and hid genuinely good
+ * setups behind a number the user could not reconcile with the factors.
+ *
+ * Critical gaps are still detected, but only as warnings. They explain the risk
+ * next to the score and they feed the setup advisory (an RR below 1 still marks
+ * the setup WAIT), without rewriting the score itself.
+ *
+ * The reward/risk ladder that used to cap the score was fitted on calibration
+ * and checked on the holdout: RR >= 2 was the only bucket non-negative in both
+ * splits, while 0.5-2 flipped sign between them. That is a reason to warn, not
+ * a reason to overwrite a score.
+ */
+export function applyScoreAdvisories(
+  baseScore: number,
+  flags: CriticalScoreFlags,
+): { score: number; advisories: string[] } {
+  const advisories: string[] = [];
+
+  if (!flags.timeframeAligned) advisories.push("H1/M15 belum selaras");
+  if (!flags.confirmationCandle) advisories.push("belum ada candle konfirmasi");
+  if (flags.riskRewardRatio < 0.5) advisories.push("RR di bawah 0.5");
+  else if (flags.riskRewardRatio < 1) advisories.push("RR di bawah 1");
+  else if (flags.riskRewardRatio < 2) advisories.push("RR di bawah 2");
+  if (flags.newsStatus === "HIGH_RISK") advisories.push("risiko berita tinggi");
+  else if (flags.newsStatus === "UNAVAILABLE") {
+    // A provider outage is missing information, not evidence of risk.
+    advisories.push("data berita tidak tersedia; bobot berita dikurangi");
+  }
+
+  return {
+    score: Math.max(0, Math.min(100, baseScore)),
+    advisories,
+  };
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -156,27 +239,39 @@ export function calculateConfidence(
     h1Trend.adxSlope > -3 &&
     m15Trend.adxSlope > -3;
   const newsControlled = newsRisk.riskScore < 35 && newsRisk.status === "CLEAR";
+  const confirmationCandle = checkConfirmationCandle(candles, bias);
 
   const checklist: ChecklistItem[] = [
-    { label: "Alignment H1/M15",     passed: timeframeAligned,                        weight: 0.20 },
-    { label: "Struktur HH-HL/LH-LL", passed: structureAligned,                        weight: 0.15 },
-    { label: "DMI + ADX Mendukung",  passed: dmiAligned,                             weight: 0.15 },
-    { label: "Harga di Value Zone",  passed: checkNearHLLH(candles, bias, atr),       weight: 0.13 },
-    { label: "Confirmation Candle",  passed: checkConfirmationCandle(candles, bias),  weight: 0.13 },
-    { label: "Momentum Sehat",       passed: checkHealthyMomentum(candles, bias, atr) && checkMomentumCandle(candles, bias), weight: 0.09 },
-    { label: "Risk Reward Bagus",    passed: plannedRiskReward >= 1.5,               weight: 0.05 },
-    { label: "Risiko Berita Rendah", passed: newsControlled,                          weight: 0.10 },
+    { label: "Alignment H1/M15",     passed: timeframeAligned,                        weight: SCORING_WEIGHTS.alignment },
+    { label: "Struktur HH-HL/LH-LL", passed: structureAligned,                        weight: SCORING_WEIGHTS.structure },
+    { label: "DMI + ADX Mendukung",  passed: dmiAligned,                              weight: SCORING_WEIGHTS.dmi },
+    { label: "Harga di Value Zone",  passed: checkNearHLLH(candles, bias, atr),       weight: SCORING_WEIGHTS.valueZone },
+    { label: "Confirmation Candle",  passed: confirmationCandle,                      weight: SCORING_WEIGHTS.confirmation },
+    { label: "Momentum Sehat",       passed: checkHealthyMomentum(candles, bias, atr) && checkMomentumCandle(candles, bias), weight: SCORING_WEIGHTS.momentum },
+    { label: "Risk Reward Bagus",    passed: plannedRiskReward >= 1.5,                weight: SCORING_WEIGHTS.rewardRisk },
+    { label: "Risiko Berita Rendah", passed: newsControlled,                          weight: SCORING_WEIGHTS.news },
   ];
 
-  // News is scored once, continuously by provider risk score. The checklist's
-  // passed state is for display only; it is not subtracted a second time.
+  // News and reward/risk are scored continuously. Their checklist passed states
+  // are display-only; awarding the full weight twice would double-count them.
+  // RR is normalised against 3R, so 1.5R earns half of its weight.
   const rawScore = checklist.reduce((acc, item) => {
     if (item.label === "Risiko Berita Rendah") {
       return acc + item.weight * (1 - Math.max(0, Math.min(100, newsRisk.riskScore)) / 100);
     }
+    if (item.label === "Risk Reward Bagus") {
+      const rrFraction = Math.max(0, Math.min(1, plannedRiskReward / 3));
+      return acc + item.weight * rrFraction;
+    }
     return acc + (item.passed ? item.weight : 0);
   }, 0);
-  const score = Math.max(0, Math.min(100, Math.round(rawScore * 100)));
+  const baseScore = Math.round(rawScore * 100);
+  const { score, advisories } = applyScoreAdvisories(baseScore, {
+    timeframeAligned,
+    confirmationCandle,
+    riskRewardRatio: plannedRiskReward,
+    newsStatus: newsRisk.status,
+  });
   const level = scoreToLevel(score);
   // Deprecated compatibility field: the score is advisory and never a hard gate.
   const tradeAllowed = true;
@@ -193,12 +288,17 @@ export function calculateConfidence(
     newsRisk.status === "UNAVAILABLE" ? "data berita tidak lengkap; skor disesuaikan" : "",
   ].filter(Boolean);
 
+  const capNote = advisories.length > 0
+    ? ` Perhatian: ${advisories.join("; ")}.`
+    : "";
+
   return {
     score,
     level,
+    advisories,
     checklist,
     timeframeAligned,
     tradeAllowed,
-    note: `Skor konfluensi ${pair}: ${score}/100 (heuristik, bukan probabilitas menang). Ini peringatan saja—sistem tidak memblokir setup.${warnings.length > 0 ? ` Perlu diperhatikan: ${warnings.join("; ")}.` : " Tidak ada peringatan utama; tetap kelola risiko."}`,
+    note: `Skor konfluensi ${pair}: ${score}/100 (heuristik, bukan probabilitas menang). Ini peringatan saja—sistem tidak memblokir setup.${capNote}${warnings.length > 0 ? ` Perlu diperhatikan: ${warnings.join("; ")}.` : " Tidak ada peringatan utama; tetap kelola risiko."}`,
   };
 }

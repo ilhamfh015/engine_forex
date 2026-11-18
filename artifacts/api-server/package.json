@@ -10,6 +10,7 @@
     "test:trend": "node ./run-tests.mjs",
     "test": "tsx --test src/services/*.test.ts",
     "backtest:confidence": "tsx src/services/backtest-cli.ts",
+    "backtest:calibrate": "tsx src/services/backtest-calibrate-cli.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

@@ -25,6 +25,8 @@ export interface MarketAnalysis {
   /** Heuristic confluence score 0-100; not a win probability */
   confidence: number;
   confidenceLevel: MarketAnalysisConfidenceLevel;
+  /** Critical-gap warnings shown next to the score. They never change the score. */
+  advisories?: string[];
   checklist: ChecklistItem[];
   summary: MarketSummary;
   /** True only when H1 and M15 are both trending in the same direction */

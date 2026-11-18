@@ -90,7 +90,7 @@ function buildReason(
  * @param h1Direction - Trend on H1
  * @param m15Direction - Trend on M15
  * @param confidence - Numeric confidence score 0-100
- * @param confidenceLevel - "High" | "Medium" | "Low"
+ * @param confidenceLevel - "High" | "Medium" | "Low" | "VeryLow"
  * @param checklist - Array of entry checklist items
  */
 export function generateSummary(

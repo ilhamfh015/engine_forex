@@ -29,6 +29,10 @@ export function TradeSetupCard({ setup, pair, index }: TradeSetupCardProps) {
   const border = isBuy ? 'border-primary/30' : 'border-destructive/30';
   const panel = isBuy ? 'bg-primary/5' : 'bg-destructive/5';
   const Icon = isCaution ? AlertTriangle : isReady ? ShieldCheck : Crosshair;
+  // For a SELL plan the stop sits above entry and the targets sit below it.
+  // Keep the arrows aligned with the actual price geometry.
+  const StopIcon = isBuy ? ArrowDown : ArrowUp;
+  const TargetIcon = isBuy ? ArrowUp : ArrowDown;
 
   return (
     <motion.section
@@ -74,13 +78,13 @@ export function TradeSetupCard({ setup, pair, index }: TradeSetupCardProps) {
             </p>
           </div>
           <div className="rounded-xl border border-destructive/25 bg-destructive/5 p-3">
-            <p className="flex items-center gap-1 text-xs text-muted-foreground"><ArrowDown className="h-3 w-3" /> Stop loss</p>
+            <p className="flex items-center gap-1 text-xs text-muted-foreground"><StopIcon className="h-3 w-3" /> Stop loss</p>
             <p className="mt-1 font-mono text-sm font-bold text-destructive">
               {formatPrice(setup.stopLoss, pair)}
             </p>
           </div>
           <div className="rounded-xl border border-primary/25 bg-primary/5 p-3">
-            <p className="flex items-center gap-1 text-xs text-muted-foreground"><ArrowUp className="h-3 w-3" /> Target 1 / 2</p>
+            <p className="flex items-center gap-1 text-xs text-muted-foreground"><TargetIcon className="h-3 w-3" /> Target 1 / 2</p>
             <p className="mt-1 font-mono text-sm font-bold text-primary">
               {formatPrice(setup.tp1, pair)} / {formatPrice(setup.tp2, pair)}
             </p>

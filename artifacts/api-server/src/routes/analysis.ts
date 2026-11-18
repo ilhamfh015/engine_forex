@@ -16,10 +16,22 @@ import { generateSummary } from "../services/SummaryService.js";
 import { applySetupAdvisory, buildTradeSetup } from "../services/TradeSetupService.js";
 import { getCandles, getClosedCandles } from "../services/TwelveDataService.js";
 import { getNewsRisk } from "../services/NewsService.js";
+import {
+  runConfidenceBacktest,
+  type ConfidenceBacktestReport,
+} from "../services/ConfidenceBacktestService.js";
 import { db, marketAnalysisTable } from "@workspace/db";
 import { desc, eq } from "drizzle-orm";
 
 const router: IRouter = Router();
+
+// Backtest replay is CPU-bound and requests a much longer candle history than
+// the live dashboard. Cache it separately so repeated UI opens do not keep
+// asking the provider for the same window.
+const BACKTEST_M15_CANDLES = 1000;
+const BACKTEST_H1_CANDLES = 400;
+const BACKTEST_CACHE_TTL_MS = 30 * 60 * 1000;
+const backtestCache = new Map<string, { value: ConfidenceBacktestReport; expiresAt: number }>();
 
 /**
  * GET /analysis/:pair
@@ -73,7 +85,7 @@ router.get("/analysis/:pair", async (req: Request, res: Response) => {
       initialTradeSetup.riskRewardRatio,
       newsRisk,
     );
-    const { score, level, checklist, timeframeAligned, tradeAllowed, note } = confidence;
+    const { score, level, checklist, timeframeAligned, tradeAllowed, note, advisories } = confidence;
     const tradeSetup = applySetupAdvisory(initialTradeSetup, {
       score,
       timeframeAligned,
@@ -123,6 +135,7 @@ router.get("/analysis/:pair", async (req: Request, res: Response) => {
       trendM15,
       confidence: score,
       confidenceLevel: level,
+      advisories,
       checklist,
       summary,
       timeframeAligned,
@@ -135,6 +148,52 @@ router.get("/analysis/:pair", async (req: Request, res: Response) => {
     req.log.error({ err }, "Error generating analysis");
     const message = err instanceof Error ? err.message : "Internal server error";
     res.status(500).json({ error: message });
+  }
+});
+
+/**
+ * GET /analysis/:pair/backtest
+ *
+ * Replays the live M15 setup logic over a longer candle history and returns
+ * calibration and chronological holdout results grouped by score band.
+ * The report is cached in memory; it never writes to the database.
+ */
+router.get("/analysis/:pair/backtest", async (req: Request, res: Response) => {
+  const parsed = GetAnalysisParams.safeParse(req.params);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid currency pair. Supported: EURUSD, GBPUSD, USDJPY, XAUUSD, BTCUSD" });
+    return;
+  }
+
+  const { pair } = parsed.data;
+  const cached = backtestCache.get(pair);
+  if (cached && Date.now() < cached.expiresAt) {
+    res.json(cached.value);
+    return;
+  }
+
+  try {
+    const [candlesM15, candlesH1] = await Promise.all([
+      getCandles(pair, "M15", BACKTEST_M15_CANDLES),
+      getCandles(pair, "H1", BACKTEST_H1_CANDLES),
+    ]);
+    const report = runConfidenceBacktest(pair, candlesM15, candlesH1);
+
+    backtestCache.set(pair, {
+      value: report,
+      expiresAt: Date.now() + BACKTEST_CACHE_TTL_MS,
+    });
+
+    res.json(report);
+  } catch (err) {
+    req.log.error({ err }, "Error generating confidence backtest");
+    const message = err instanceof Error ? err.message : "Internal server error";
+    const insufficientHistory = /Not enough closed/.test(message);
+    res.status(insufficientHistory ? 422 : 500).json({
+      error: insufficientHistory
+        ? `Riwayat candle belum cukup untuk backtest ${pair}. Coba lagi beberapa saat lagi.`
+        : "Backtest gagal dijalankan. Cek koneksi dan API key Twelve Data.",
+    });
   }
 });
 
@@ -223,7 +282,7 @@ router.get("/analysis/pairs/summary", async (req: Request, res: Response) => {
         trendM15.marketState,
         trendM15.direction,
       );
-      const { score, level } = calculateConfidence(
+      const { score, level, checklist } = calculateConfidence(
         pair,
         trendH1,
         trendM15,
@@ -237,7 +296,7 @@ router.get("/analysis/pairs/summary", async (req: Request, res: Response) => {
         trendM15.direction,
         score,
         level,
-        [],
+        checklist,
         trendH1.marketState,
         trendM15.marketState,
         newsRisk,

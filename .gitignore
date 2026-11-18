@@ -48,3 +48,11 @@ Thumbs.db
 .cache/
 .local/
 /.vercel/
+
+# Environment variables (secrets)
+.env
+.env.*
+!.env.example
+
+# Generated analysis artifacts
+artifacts/**/backtest-results/

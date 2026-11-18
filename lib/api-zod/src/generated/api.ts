@@ -61,7 +61,8 @@ export const GetAnalysisResponse = zod.object({
   "candleTime": zod.string().describe('Timestamp of the last closed candle used')
 }).describe('Trend direction with market structure explanation'),
   "confidence": zod.number().describe('Heuristic confluence score 0-100; not a win probability'),
-  "confidenceLevel": zod.enum(['High', 'Medium', 'Low']),
+  "confidenceLevel": zod.enum(['High', 'Medium', 'Low', 'VeryLow']),
+  "advisories": zod.array(zod.string()).optional().describe('Critical-gap warnings shown next to the score. They never change the score.'),
   "checklist": zod.array(zod.object({
   "label": zod.string().describe('Human-readable label of the condition'),
   "passed": zod.boolean().describe('Whether the condition is met'),
@@ -70,7 +71,7 @@ export const GetAnalysisResponse = zod.object({
   "summary": zod.object({
   "bias": zod.enum(['BUY', 'SELL']),
   "confidence": zod.number().describe('Heuristic confluence score 0-100; not a win probability'),
-  "confidenceLevel": zod.enum(['High', 'Medium', 'Low']),
+  "confidenceLevel": zod.enum(['High', 'Medium', 'Low', 'VeryLow']),
   "reason": zod.string().describe('Multi-line narrative explaining the bias')
 }).describe('Overall trading bias summary with a heuristic confluence score'),
   "timeframeAligned": zod.boolean().describe('True only when H1 and M15 are both trending in the same direction'),
@@ -121,6 +122,67 @@ export const GetAnalysisResponse = zod.object({
 
 
 /**
+ * Replays the M15 setup logic over a longer candle history and returns calibration plus chronological holdout results grouped by score band. The report is cached in memory and does not write to the database.
+ * @summary Get confidence calibration backtest for a currency pair
+ */
+export const GetAnalysisBacktestParams = zod.object({
+  "pair": zod.enum(['EURUSD', 'GBPUSD', 'USDJPY', 'XAUUSD', 'BTCUSD']).describe('Currency pair to backtest')
+})
+
+export const GetAnalysisBacktestResponse = zod.object({
+  "pair": zod.string(),
+  "entryTimeframe": zod.enum(['M15']),
+  "confirmationTimeframe": zod.enum(['H1']),
+  "candlesM15": zod.number(),
+  "candlesH1": zod.number(),
+  "m15From": zod.coerce.date(),
+  "m15To": zod.coerce.date(),
+  "splitAt": zod.coerce.date(),
+  "scenarios": zod.array(zod.object({
+  "scoreScenario": zod.enum(['news-neutral', 'news-unavailable']),
+  "periods": zod.array(zod.object({
+  "name": zod.enum(['calibration', 'out-of-sample']),
+  "from": zod.coerce.date(),
+  "to": zod.coerce.date(),
+  "buckets": zod.array(zod.object({
+  "scoreBand": zod.string().describe('Score band label, e.g. 45-54'),
+  "signals": zod.number().describe('Number of eligible signal candles observed'),
+  "ordersPlaced": zod.number().describe('Number of simulated limit orders'),
+  "unfilledOrders": zod.number().describe('Orders that expired before being filled'),
+  "trades": zod.number().describe('Filled trades with a completed outcome'),
+  "wins": zod.number().describe('Trades with positive net R after friction'),
+  "winRate": zod.number().nullable().describe('Win rate percentage after friction'),
+  "averageGrossR": zod.number().nullable().describe('Average gross R per trade'),
+  "expectancyNetRAt0Cost": zod.number().nullable().describe('Average net R per trade with no friction'),
+  "expectancyNetRAt005Cost": zod.number().nullable().describe('Average net R per trade with 0.05R round-trip friction'),
+  "expectancyNetRAt010Cost": zod.number().nullable().describe('Average net R per trade with 0.10R round-trip friction'),
+  "maxDrawdownRAt005Cost": zod.number().nullable().describe('Sequential closed-trade drawdown in R at 0.05R friction')
+}).describe('Replay outcomes for one confidence-score band')),
+  "fineBuckets": zod.array(zod.object({
+  "scoreBand": zod.string().describe('Score band label, e.g. 45-54'),
+  "signals": zod.number().describe('Number of eligible signal candles observed'),
+  "ordersPlaced": zod.number().describe('Number of simulated limit orders'),
+  "unfilledOrders": zod.number().describe('Orders that expired before being filled'),
+  "trades": zod.number().describe('Filled trades with a completed outcome'),
+  "wins": zod.number().describe('Trades with positive net R after friction'),
+  "winRate": zod.number().nullable().describe('Win rate percentage after friction'),
+  "averageGrossR": zod.number().nullable().describe('Average gross R per trade'),
+  "expectancyNetRAt0Cost": zod.number().nullable().describe('Average net R per trade with no friction'),
+  "expectancyNetRAt005Cost": zod.number().nullable().describe('Average net R per trade with 0.05R round-trip friction'),
+  "expectancyNetRAt010Cost": zod.number().nullable().describe('Average net R per trade with 0.10R round-trip friction'),
+  "maxDrawdownRAt005Cost": zod.number().nullable().describe('Sequential closed-trade drawdown in R at 0.05R friction')
+}).describe('Replay outcomes for one confidence-score band')).describe('Outcomes grouped into five-point score bins, for calibration research'),
+  "scoreHistogram": zod.array(zod.object({
+  "scoreBucket": zod.string().describe('Five-point score bin, e.g. 60-64'),
+  "signals": zod.number()
+})).describe('Signals observed per five-point score bin')
+}).describe('One chronological segment of the replay'))
+}).describe('Replay results under one historical-news assumption')),
+  "assumptions": zod.array(zod.string())
+}).describe('Calibration and out-of-sample replay of the confidence score')
+
+
+/**
  * Returns the last N analysis snapshots stored in the database
  * @summary Get analysis history for a currency pair
  */
@@ -135,7 +197,7 @@ export const GetAnalysisHistoryResponseItem = zod.object({
   "trendH1Direction": zod.enum(['BUY', 'SELL']),
   "trendM15Direction": zod.enum(['BUY', 'SELL']),
   "confidence": zod.number(),
-  "confidenceLevel": zod.enum(['High', 'Medium', 'Low']),
+  "confidenceLevel": zod.enum(['High', 'Medium', 'Low', 'VeryLow']),
   "bias": zod.enum(['BUY', 'SELL'])
 }).describe('A stored analysis snapshot from history')
 export const GetAnalysisHistoryResponse = zod.array(GetAnalysisHistoryResponseItem)
@@ -149,7 +211,7 @@ export const GetAllPairsSummaryResponseItem = zod.object({
   "pair": zod.string(),
   "bias": zod.enum(['BUY', 'SELL']),
   "confidence": zod.number(),
-  "confidenceLevel": zod.enum(['High', 'Medium', 'Low']),
+  "confidenceLevel": zod.enum(['High', 'Medium', 'Low', 'VeryLow']),
   "trendH1": zod.enum(['BUY', 'SELL']),
   "trendM15": zod.enum(['BUY', 'SELL']),
   "newsStatus": zod.enum(['CLEAR', 'CAUTION', 'HIGH_RISK', 'UNAVAILABLE']),

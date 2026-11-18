@@ -222,11 +222,24 @@ async function fetchNews(pair: string): Promise<NewsRisk> {
   url.searchParams.set("gl", "US");
   url.searchParams.set("ceid", "US:en");
 
+  const rssRequest = async () => {
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        return await fetch(url, {
+          headers: { "user-agent": "ForexMarketStructureAnalyzer/1.0" },
+          signal: AbortSignal.timeout(8_000),
+        });
+      } catch (error) {
+        lastError = error;
+        if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 1_500));
+      }
+    }
+    throw lastError;
+  };
+
   const [rssResult, calendarResult] = await Promise.allSettled([
-    fetch(url, {
-      headers: { "user-agent": "ForexMarketStructureAnalyzer/1.0" },
-      signal: AbortSignal.timeout(8_000),
-    }).then(async (response) => {
+    rssRequest().then(async (response) => {
       if (!response.ok) throw new Error(`News provider HTTP ${response.status}`);
       return parseNews(await response.text(), profile).slice(0, 8);
     }),
@@ -234,8 +247,9 @@ async function fetchNews(pair: string): Promise<NewsRisk> {
   ]);
   const rssAvailable = rssResult.status === "fulfilled";
   const calendarAvailable = calendarResult.status === "fulfilled";
-  if (!rssAvailable) logger.warn({ pair, error: rssResult.reason }, "Headline source unavailable");
-  if (!calendarAvailable) logger.warn({ pair, error: calendarResult.reason }, "Economic calendar unavailable");
+  const errorText = (reason: unknown) => reason instanceof Error ? reason.message : String(reason);
+  if (!rssAvailable) logger.warn({ pair, error: errorText(rssResult.reason) }, "Headline source unavailable");
+  if (!calendarAvailable) logger.warn({ pair, error: errorText(calendarResult.reason) }, "Economic calendar unavailable");
 
   return buildNewsRiskFromSources(
     pair,

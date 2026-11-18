@@ -13,4 +13,5 @@ export const MarketSummaryConfidenceLevel = {
   High: 'High',
   Medium: 'Medium',
   Low: 'Low',
+  VeryLow: 'VeryLow',
 } as const;

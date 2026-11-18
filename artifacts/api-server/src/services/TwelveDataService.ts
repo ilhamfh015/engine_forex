@@ -123,14 +123,29 @@ async function fetchFromApi(
     `&apikey=${apiKey}`;
 
   const request = () => fetch(url, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+  // Provider timeouts happen often enough on long history requests that a
+  // single attempt makes the whole backtest lose a pair. Retry transient
+  // failures with a short backoff; HTTP errors are still surfaced normally.
+  const requestWithRetry = async () => {
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        return await request();
+      } catch (error) {
+        lastError = error;
+        if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 2_000 * (attempt + 1)));
+      }
+    }
+    throw lastError;
+  };
 
   await waitForRateLimit();
-  let res = await request();
+  let res = await requestWithRetry();
 
   if (res.status === 429) {
     await new Promise((r) => setTimeout(r, 12_000));
     await waitForRateLimit();
-    res = await request();
+    res = await requestWithRetry();
   }
   if (!res.ok) throw new Error(`Twelve Data HTTP ${res.status}: ${res.statusText}`);
 
@@ -355,10 +370,13 @@ export function findSwingHighPoints(
       }
     }
     if (!isPivot) continue;
-    // Size filter: swing must be at least minSizeMult * ATR above its lowest neighbour
+    // Size filter: swing must be at least minSizeMult * ATR above the lowest
+    // low in its neighbourhood. Using neighbour highs made valid swings fail
+    // whenever adjacent highs were similar, even if the actual swing range
+    // was large.
     if (atr > 0) {
       const lowestNeighbour = Math.min(
-        ...candles.slice(i - lookback, i + lookback + 1).map((c) => c.high),
+        ...candles.slice(i - lookback, i + lookback + 1).map((c) => c.low),
       );
       if (candles[i].high - lowestNeighbour < minSizeMult * atr) continue;
     }
@@ -397,7 +415,7 @@ export function findSwingLowPoints(
     if (!isPivot) continue;
     if (atr > 0) {
       const highestNeighbour = Math.max(
-        ...candles.slice(i - lookback, i + lookback + 1).map((c) => c.low),
+        ...candles.slice(i - lookback, i + lookback + 1).map((c) => c.high),
       );
       if (highestNeighbour - candles[i].low < minSizeMult * atr) continue;
     }

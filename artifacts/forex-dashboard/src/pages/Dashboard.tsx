@@ -9,6 +9,7 @@ import { PairsOverview } from '@/components/PairsOverview';
 import { TradingViewWidget } from '@/components/TradingViewWidget';
 import { TradeSetupCard } from '@/components/TradeSetupCard';
 import { NewsRiskCard } from '@/components/NewsRiskCard';
+import { BacktestCard } from '@/components/BacktestCard';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,11 +17,14 @@ import {
   getGetAnalysisQueryKey,
   useGetAllPairsSummary,
   getGetAllPairsSummaryQueryKey,
+  useGetAnalysisBacktest,
+  getGetAnalysisBacktestQueryKey,
 } from '@workspace/api-client-react';
 
 export default function Dashboard() {
   const [selectedPair, setSelectedPair] = useState<'EURUSD' | 'GBPUSD' | 'USDJPY' | 'XAUUSD' | 'BTCUSD'>('EURUSD');
   const [isPairsOverviewOpen, setIsPairsOverviewOpen] = useState(false);
+  const [isBacktestOpen, setIsBacktestOpen] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: analysis, isLoading: isLoadingAnalysis, isFetching: isFetchingAnalysis, error: analysisError } = useGetAnalysis(
@@ -45,10 +49,26 @@ export default function Dashboard() {
     }
   });
 
+  const {
+    data: backtest,
+    isLoading: isLoadingBacktest,
+    error: backtestError,
+  } = useGetAnalysisBacktest(selectedPair, {
+    query: {
+      queryKey: getGetAnalysisBacktestQueryKey(selectedPair),
+      enabled: isBacktestOpen,
+      staleTime: 30 * 60 * 1000,
+      refetchInterval: false,
+    }
+  });
+
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: getGetAnalysisQueryKey(selectedPair) });
     if (isPairsOverviewOpen) {
       queryClient.invalidateQueries({ queryKey: getGetAllPairsSummaryQueryKey() });
+    }
+    if (isBacktestOpen) {
+      queryClient.invalidateQueries({ queryKey: getGetAnalysisBacktestQueryKey(selectedPair) });
     }
   };
 
@@ -133,6 +153,7 @@ export default function Dashboard() {
             confidence={analysis.confidence}
             confidenceLevel={analysis.confidenceLevel}
             checklist={analysis.checklist}
+            advisories={analysis.advisories}
             index={2}
           />
           <SummaryCard summary={analysis.summary} index={3} />
@@ -140,6 +161,50 @@ export default function Dashboard() {
 
         <TradeSetupCard setup={analysis.tradeSetup} pair={selectedPair} index={4} />
         <NewsRiskCard risk={analysis.newsRisk} index={5} />
+
+        <section className="dashboard-panel p-4 sm:p-5" aria-labelledby="backtest-heading">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 id="backtest-heading" className="dashboard-section-title">Validasi skor</h3>
+              <p className="mt-1 max-w-2xl text-xs leading-relaxed text-muted-foreground">
+                Cek apakah band skor 55–100, 45–54, 35–44, dan 0–34 punya hasil historis yang berbeda.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 border-card-border"
+              onClick={() => setIsBacktestOpen((open) => !open)}
+              aria-expanded={isBacktestOpen}
+              aria-controls="backtest-content"
+            >
+              {isBacktestOpen ? 'Sembunyikan' : 'Muat backtest'}
+              <ChevronDown className={`h-4 w-4 transition-transform ${isBacktestOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
+            </Button>
+          </div>
+          {isBacktestOpen && (
+            <div id="backtest-content" className="mt-4">
+              {isLoadingBacktest && (
+                <p className="text-sm text-muted-foreground" role="status">
+                  Menjalankan replay historis… Ini bisa memakan waktu saat cache masih dingin.
+                </p>
+              )}
+              {backtestError && (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm" role="alert">
+                  <span>Backtest gagal dimuat. Riwayat candle mungkin belum cukup atau provider sedang sibuk.</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => queryClient.invalidateQueries({ queryKey: getGetAnalysisBacktestQueryKey(selectedPair) })}
+                  >
+                    Coba lagi
+                  </Button>
+                </div>
+              )}
+              {backtest && !isLoadingBacktest && <BacktestCard report={backtest} />}
+            </div>
+          )}
+        </section>
 
         <section className="dashboard-panel p-4 sm:p-5" aria-labelledby="pairs-overview-heading">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -191,6 +256,11 @@ export default function Dashboard() {
         <div>
           <TradingViewWidget pair={selectedPair} />
         </div>
+
+        <footer className="pb-4 text-center text-[11px] leading-relaxed text-muted-foreground">
+          Alat bantu keputusan, bukan saran eksekusi otomatis. Skor dan status bersifat heuristik;
+          selalu kelola risiko dan verifikasi sebelum entry.
+        </footer>
       </main>
     </div>
   );

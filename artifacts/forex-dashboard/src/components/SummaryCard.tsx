@@ -13,6 +13,21 @@ export function SummaryCard({ summary, index }: SummaryCardProps) {
   const borderColor = isBuy ? 'border-primary/30' : 'border-destructive/30';
   const textColor = isBuy ? 'text-primary' : 'text-destructive';
 
+  const levelLabel: Record<string, string> = {
+    High: 'tinggi',
+    Medium: 'sedang',
+    Low: 'rendah',
+    VeryLow: 'sangat rendah',
+  };
+  const levelTone: Record<string, string> = {
+    High: 'bg-primary/10 text-primary',
+    Medium: 'bg-amber-500/10 text-amber-400',
+    Low: 'bg-orange-500/10 text-orange-400',
+    VeryLow: 'bg-destructive/10 text-destructive',
+  };
+  const level = summary.confidenceLevel;
+  const levelClass = levelTone[level] ?? 'bg-muted text-muted-foreground';
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -48,8 +63,8 @@ export function SummaryCard({ summary, index }: SummaryCardProps) {
               <span className="font-mono text-lg font-semibold tabular-nums text-foreground" data-testid="text-summary-confidence">
                 {summary.confidence}/100
               </span>
-              <span className={`rounded-full px-2 py-1 text-[11px] font-medium ${bgColor} ${textColor}`} data-testid="text-summary-level">
-                {summary.confidenceLevel}
+              <span className={`rounded-full px-2 py-1 text-[11px] font-medium ${levelClass}`} data-testid="text-summary-level">
+                {levelLabel[level] ?? level}
               </span>
             </div>
           </div>

@@ -17,6 +17,7 @@ import type {
 
 import type {
   AnalysisSnapshot,
+  ConfidenceBacktestReport,
   ErrorResponse,
   HealthStatus,
   MarketAnalysis,
@@ -194,6 +195,84 @@ export function useGetAnalysis<TData = Awaited<ReturnType<typeof getAnalysis>>, 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetAnalysisQueryOptions(pair,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetAnalysisBacktestUrl = (pair: 'EURUSD' | 'GBPUSD' | 'USDJPY' | 'XAUUSD' | 'BTCUSD',) => {
+
+
+
+
+  return `/api/analysis/${pair}/backtest`
+}
+
+/**
+ * Replays the M15 setup logic over a longer candle history and returns calibration plus chronological holdout results grouped by score band. The report is cached in memory and does not write to the database.
+ * @summary Get confidence calibration backtest for a currency pair
+ */
+export const getAnalysisBacktest = async (pair: 'EURUSD' | 'GBPUSD' | 'USDJPY' | 'XAUUSD' | 'BTCUSD', options?: Parameters<typeof customFetch>[1]): Promise<ConfidenceBacktestReport> => {
+
+  return customFetch<ConfidenceBacktestReport>(getGetAnalysisBacktestUrl(pair),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAnalysisBacktestQueryKey = (pair: 'EURUSD' | 'GBPUSD' | 'USDJPY' | 'XAUUSD' | 'BTCUSD',) => {
+    return [
+    `/api/analysis/${pair}/backtest`
+    ] as const;
+    }
+
+
+export const getGetAnalysisBacktestQueryOptions = <TData = Awaited<ReturnType<typeof getAnalysisBacktest>>, TError = ErrorType<ErrorResponse>>(pair: 'EURUSD' | 'GBPUSD' | 'USDJPY' | 'XAUUSD' | 'BTCUSD', options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAnalysisBacktest>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAnalysisBacktestQueryKey(pair);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAnalysisBacktest>>> = ({ signal }) => getAnalysisBacktest(pair, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: pair !== null && pair !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAnalysisBacktest>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAnalysisBacktestQueryResult = NonNullable<Awaited<ReturnType<typeof getAnalysisBacktest>>>
+export type GetAnalysisBacktestQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Get confidence calibration backtest for a currency pair
+ */
+
+export function useGetAnalysisBacktest<TData = Awaited<ReturnType<typeof getAnalysisBacktest>>, TError = ErrorType<ErrorResponse>>(
+ pair: 'EURUSD' | 'GBPUSD' | 'USDJPY' | 'XAUUSD' | 'BTCUSD', options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAnalysisBacktest>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAnalysisBacktestQueryOptions(pair,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

@@ -229,6 +229,7 @@ export const MarketSummaryConfidenceLevel = {
   High: 'High',
   Medium: 'Medium',
   Low: 'Low',
+  VeryLow: 'VeryLow',
 } as const;
 
 /**
@@ -250,6 +251,7 @@ export const MarketAnalysisConfidenceLevel = {
   High: 'High',
   Medium: 'Medium',
   Low: 'Low',
+  VeryLow: 'VeryLow',
 } as const;
 
 /**
@@ -265,6 +267,8 @@ export interface MarketAnalysis {
   /** Heuristic confluence score 0-100; not a win probability */
   confidence: number;
   confidenceLevel: MarketAnalysisConfidenceLevel;
+  /** Critical-gap warnings shown next to the score. They never change the score. */
+  advisories?: string[];
   checklist: ChecklistItem[];
   summary: MarketSummary;
   /** True only when H1 and M15 are both trending in the same direction */
@@ -278,6 +282,128 @@ export interface MarketAnalysis {
   note: string;
   newsRisk: NewsRisk;
   tradeSetup: TradeSetup;
+}
+
+/**
+ * Replay outcomes for one confidence-score band
+ */
+export interface BacktestBucket {
+  /** Score band label, e.g. 45-54 */
+  scoreBand: string;
+  /** Number of eligible signal candles observed */
+  signals: number;
+  /** Number of simulated limit orders */
+  ordersPlaced: number;
+  /** Orders that expired before being filled */
+  unfilledOrders: number;
+  /** Filled trades with a completed outcome */
+  trades: number;
+  /** Trades with positive net R after friction */
+  wins: number;
+  /**
+     * Win rate percentage after friction
+     * @nullable
+     */
+  winRate: number | null;
+  /**
+     * Average gross R per trade
+     * @nullable
+     */
+  averageGrossR: number | null;
+  /**
+     * Average net R per trade with no friction
+     * @nullable
+     */
+  expectancyNetRAt0Cost: number | null;
+  /**
+     * Average net R per trade with 0.05R round-trip friction
+     * @nullable
+     */
+  expectancyNetRAt005Cost: number | null;
+  /**
+     * Average net R per trade with 0.10R round-trip friction
+     * @nullable
+     */
+  expectancyNetRAt010Cost: number | null;
+  /**
+     * Sequential closed-trade drawdown in R at 0.05R friction
+     * @nullable
+     */
+  maxDrawdownRAt005Cost: number | null;
+}
+
+export type BacktestPeriodName = typeof BacktestPeriodName[keyof typeof BacktestPeriodName];
+
+
+export const BacktestPeriodName = {
+  calibration: 'calibration',
+  'out-of-sample': 'out-of-sample',
+} as const;
+
+export type BacktestPeriodScoreHistogramItem = {
+  /** Five-point score bin, e.g. 60-64 */
+  scoreBucket: string;
+  signals: number;
+};
+
+/**
+ * One chronological segment of the replay
+ */
+export interface BacktestPeriod {
+  name: BacktestPeriodName;
+  from: string;
+  to: string;
+  buckets: BacktestBucket[];
+  /** Outcomes grouped into five-point score bins, for calibration research */
+  fineBuckets: BacktestBucket[];
+  /** Signals observed per five-point score bin */
+  scoreHistogram: BacktestPeriodScoreHistogramItem[];
+}
+
+export type BacktestScenarioReportScoreScenario = typeof BacktestScenarioReportScoreScenario[keyof typeof BacktestScenarioReportScoreScenario];
+
+
+export const BacktestScenarioReportScoreScenario = {
+  'news-neutral': 'news-neutral',
+  'news-unavailable': 'news-unavailable',
+} as const;
+
+/**
+ * Replay results under one historical-news assumption
+ */
+export interface BacktestScenarioReport {
+  scoreScenario: BacktestScenarioReportScoreScenario;
+  periods: BacktestPeriod[];
+}
+
+export type ConfidenceBacktestReportEntryTimeframe = typeof ConfidenceBacktestReportEntryTimeframe[keyof typeof ConfidenceBacktestReportEntryTimeframe];
+
+
+export const ConfidenceBacktestReportEntryTimeframe = {
+  M15: 'M15',
+} as const;
+
+export type ConfidenceBacktestReportConfirmationTimeframe = typeof ConfidenceBacktestReportConfirmationTimeframe[keyof typeof ConfidenceBacktestReportConfirmationTimeframe];
+
+
+export const ConfidenceBacktestReportConfirmationTimeframe = {
+  H1: 'H1',
+} as const;
+
+/**
+ * Calibration and out-of-sample replay of the confidence score
+ */
+export interface ConfidenceBacktestReport {
+  pair: string;
+  entryTimeframe: ConfidenceBacktestReportEntryTimeframe;
+  confirmationTimeframe: ConfidenceBacktestReportConfirmationTimeframe;
+  candlesM15: number;
+  candlesH1: number;
+  m15From: string;
+  m15To: string;
+  splitAt: string;
+  scenarios: BacktestScenarioReport[];
+  assumptions: string[];
 }
 
 export type AnalysisSnapshotTrendH1Direction = typeof AnalysisSnapshotTrendH1Direction[keyof typeof AnalysisSnapshotTrendH1Direction];
@@ -303,6 +429,7 @@ export const AnalysisSnapshotConfidenceLevel = {
   High: 'High',
   Medium: 'Medium',
   Low: 'Low',
+  VeryLow: 'VeryLow',
 } as const;
 
 export type AnalysisSnapshotBias = typeof AnalysisSnapshotBias[keyof typeof AnalysisSnapshotBias];
@@ -342,6 +469,7 @@ export const PairSummaryConfidenceLevel = {
   High: 'High',
   Medium: 'Medium',
   Low: 'Low',
+  VeryLow: 'VeryLow',
 } as const;
 
 export type PairSummaryTrendH1 = typeof PairSummaryTrendH1[keyof typeof PairSummaryTrendH1];

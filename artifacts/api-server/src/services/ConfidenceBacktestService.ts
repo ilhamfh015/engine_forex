@@ -1,7 +1,11 @@
 import type { Candle } from "./TwelveDataService.js";
 import { getClosedCandles } from "./TwelveDataService.js";
-import { calculateConfidence } from "./EntryConfidenceService.js";
-import { analyzeTrendFromCandles } from "./MarketStructureService.js";
+import { calculateConfidence, type ChecklistItem } from "./EntryConfidenceService.js";
+import {
+  analyzeTrendFromCandles,
+  type MarketState,
+  type TrendDirection,
+} from "./MarketStructureService.js";
 import { buildTradeSetup } from "./TradeSetupService.js";
 
 const LIVE_WINDOW_CANDLES = 99;
@@ -10,10 +14,10 @@ const DEFAULT_HOLD_BARS = 32;
 const BASE_FRICTION_R = 0.05;
 
 export const SCORE_BANDS = [
-  { key: "0-39", min: 0, max: 39 },
-  { key: "40-59", min: 40, max: 59 },
-  { key: "60-79", min: 60, max: 79 },
-  { key: "80-100", min: 80, max: 100 },
+  { key: "0-34", min: 0, max: 34 },
+  { key: "35-44", min: 35, max: 44 },
+  { key: "45-54", min: 45, max: 54 },
+  { key: "55-100", min: 55, max: 100 },
 ] as const;
 
 export type ScoreScenario = "news-neutral" | "news-unavailable";
@@ -38,6 +42,43 @@ export interface BacktestPeriod {
   from: string;
   to: string;
   buckets: BacktestBucket[];
+  // Five-point score bins are intended for calibration research; the four
+  // headline bands above stay stable for the dashboard.
+  fineBuckets: BacktestBucket[];
+  scoreHistogram: Array<{ scoreBucket: string; signals: number }>;
+}
+
+export type BacktestSampleOutcome = "win" | "loss" | "unfilled" | "not-simulated";
+
+export interface BacktestSignalSample {
+  pair: string;
+  scoreScenario: ScoreScenario;
+  period: "calibration" | "out-of-sample";
+  signalAt: string;
+  score: number;
+  scoreBand: string;
+  scoreBucket5: string;
+  direction: TrendDirection;
+  h1Direction: TrendDirection;
+  m15Direction: TrendDirection;
+  h1MarketState: MarketState;
+  m15MarketState: MarketState;
+  h1Structure: string;
+  m15Structure: string;
+  timeframeAligned: boolean;
+  riskRewardRatio: number;
+  entryPrice: number;
+  stopLoss: number;
+  takeProfit1: number;
+  takeProfit2: number;
+  takeProfit3: number;
+  orderSimulated: boolean;
+  filled: boolean;
+  outcome: BacktestSampleOutcome;
+  grossR: number | null;
+  netRAt005Cost: number | null;
+  exitAt: string | null;
+  checklist: ChecklistItem[];
 }
 
 export interface BacktestScenarioReport {
@@ -56,6 +97,9 @@ export interface ConfidenceBacktestReport {
   splitAt: string;
   scenarios: BacktestScenarioReport[];
   assumptions: string[];
+  // Only populated when the caller explicitly asks for per-signal research
+  // data. The live API keeps the aggregate-only payload small.
+  samples?: BacktestSignalSample[];
 }
 
 interface ReplayTrade {
@@ -76,6 +120,8 @@ interface PeriodAccumulator {
   startIndex: number;
   endIndex: number;
   byScenario: Map<ScoreScenario, Map<string, BucketAccumulator>>;
+  fineByScenario: Map<ScoreScenario, Map<string, BucketAccumulator>>;
+  samples: BacktestSignalSample[];
 }
 
 interface OrderOutcome {
@@ -104,7 +150,21 @@ function candleTimeMs(candle: Candle): number {
 }
 
 export function scoreBand(score: number): string {
-  return SCORE_BANDS.find((band) => score >= band.min && score <= band.max)?.key ?? "80-100";
+  return SCORE_BANDS.find((band) => score >= band.min && score <= band.max)?.key ?? "55-100";
+}
+
+/**
+ * Five-point research bin. The final bin is widened to 95-100 so the maximum
+ * score is always represented.
+ */
+export function scoreBucket5(score: number): string {
+  const clamped = Math.max(0, Math.min(100, Math.round(score)));
+  const min = Math.min(95, Math.floor(clamped / 5) * 5);
+  return min === 95 ? "95-100" : `${min}-${min + 4}`;
+}
+
+function fineBucketOrder(key: string): number {
+  return Number.parseInt(key.split("-")[0] ?? "0", 10);
 }
 
 function createAccumulator(): BucketAccumulator {
@@ -113,10 +173,26 @@ function createAccumulator(): BucketAccumulator {
 
 function initPeriod(name: PeriodAccumulator["name"], startIndex: number, endIndex: number): PeriodAccumulator {
   const byScenario = new Map<ScoreScenario, Map<string, BucketAccumulator>>();
+  const fineByScenario = new Map<ScoreScenario, Map<string, BucketAccumulator>>();
   for (const scenario of SCORE_SCENARIOS) {
     byScenario.set(scenario.key, new Map(SCORE_BANDS.map((band) => [band.key, createAccumulator()])));
+    fineByScenario.set(scenario.key, new Map());
   }
-  return { name, startIndex, endIndex, byScenario };
+  return { name, startIndex, endIndex, byScenario, fineByScenario, samples: [] };
+}
+
+function fineAccumulator(
+  period: PeriodAccumulator,
+  scenario: ScoreScenario,
+  key: string,
+): BucketAccumulator {
+  const map = period.fineByScenario.get(scenario)!;
+  let accumulator = map.get(key);
+  if (!accumulator) {
+    accumulator = createAccumulator();
+    map.set(key, accumulator);
+  }
+  return accumulator;
 }
 
 function summarizeBucket(scoreBandName: string, accumulator: BucketAccumulator): BacktestBucket {
@@ -162,6 +238,9 @@ function makePeriodResult(
 ): BacktestPeriod {
   const first = bars[period.startIndex];
   const last = bars[Math.max(period.startIndex, period.endIndex - 1)];
+  const fineMap = period.fineByScenario.get(scenario) ?? new Map<string, BucketAccumulator>();
+  const fineKeys = Array.from(fineMap.keys()).sort((a, b) => fineBucketOrder(a) - fineBucketOrder(b));
+  const fineBuckets = fineKeys.map((key) => summarizeBucket(key, fineMap.get(key)!));
 
   return {
     name: period.name,
@@ -171,6 +250,11 @@ function makePeriodResult(
       band.key,
       period.byScenario.get(scenario)?.get(band.key) ?? createAccumulator(),
     )),
+    fineBuckets,
+    scoreHistogram: fineBuckets.map((bucket) => ({
+      scoreBucket: bucket.scoreBand,
+      signals: bucket.signals,
+    })),
   };
 }
 
@@ -249,12 +333,13 @@ export function runConfidenceBacktest(
   pair: string,
   m15Input: Candle[],
   h1Input: Candle[],
-  options: { maxPendingBars?: number; maxHoldBars?: number } = {},
+  options: { maxPendingBars?: number; maxHoldBars?: number; includeSamples?: boolean } = {},
 ): ConfidenceBacktestReport {
   const m15 = getClosedCandles(m15Input);
   const h1 = getClosedCandles(h1Input);
   const maxPendingBars = options.maxPendingBars ?? DEFAULT_PENDING_BARS;
   const maxHoldBars = options.maxHoldBars ?? DEFAULT_HOLD_BARS;
+  const includeSamples = options.includeSamples ?? false;
   if (m15.length < LIVE_WINDOW_CANDLES + maxPendingBars + maxHoldBars + 2) {
     throw new Error(`Not enough closed M15 candles for replay: ${m15.length}`);
   }
@@ -309,7 +394,7 @@ export function runConfidenceBacktest(
         m15Trend.marketState,
         m15Trend.direction,
       );
-      const scores = new Map<ScoreScenario, number>();
+      const confidences = new Map<ScoreScenario, ReturnType<typeof calculateConfidence>>();
       for (const scenario of SCORE_SCENARIOS) {
         const confidence = calculateConfidence(
           pair,
@@ -319,32 +404,77 @@ export function runConfidenceBacktest(
           setup.riskRewardRatio,
           newsRisks.get(scenario.key)!(signalCloseTime),
         );
-        scores.set(scenario.key, confidence.score);
+        confidences.set(scenario.key, confidence);
         const bucket = period.byScenario.get(scenario.key)!.get(scoreBand(confidence.score))!;
         bucket.signals++;
+        fineAccumulator(period, scenario.key, scoreBucket5(confidence.score)).signals++;
       }
 
       // The simulation holds at most one open/pending order per pair. All score
       // observations are still counted; this only models finite trading capital.
-      if (index < nextAvailableIndex) continue;
-
-      const outcome = simulateLimitOrder(
-        m15,
-        index,
-        period.endIndex,
-        setup,
-        maxPendingBars,
-        maxHoldBars,
-      );
-      nextAvailableIndex = outcome.nextAvailableIndex;
+      const outcome = index >= nextAvailableIndex
+        ? simulateLimitOrder(m15, index, period.endIndex, setup, maxPendingBars, maxHoldBars)
+        : undefined;
+      if (outcome) nextAvailableIndex = outcome.nextAvailableIndex;
 
       for (const scenario of SCORE_SCENARIOS) {
-        const bucket = period.byScenario.get(scenario.key)!.get(scoreBand(scores.get(scenario.key)!))!;
-        bucket.ordersPlaced++;
-        if (!outcome.filled) {
-          bucket.unfilledOrders++;
-        } else if (outcome.trade) {
-          bucket.trades.push(outcome.trade);
+        const confidence = confidences.get(scenario.key)!;
+        const score = confidence.score;
+        const band = scoreBand(score);
+        const fine = fineAccumulator(period, scenario.key, scoreBucket5(score));
+        const bucket = period.byScenario.get(scenario.key)!.get(band)!;
+
+        if (outcome) {
+          bucket.ordersPlaced++;
+          fine.ordersPlaced++;
+          if (!outcome.filled) {
+            bucket.unfilledOrders++;
+            fine.unfilledOrders++;
+          } else if (outcome.trade) {
+            bucket.trades.push(outcome.trade);
+            fine.trades.push(outcome.trade);
+          }
+        }
+
+        if (includeSamples) {
+          const trade = outcome?.trade;
+          const sampleOutcome: BacktestSampleOutcome = !outcome
+            ? "not-simulated"
+            : !outcome.filled
+              ? "unfilled"
+              : trade && trade.grossR > BASE_FRICTION_R
+                ? "win"
+                : "loss";
+          period.samples.push({
+            pair,
+            scoreScenario: scenario.key,
+            period: period.name,
+            signalAt: signalBar.datetime,
+            score,
+            scoreBand: band,
+            scoreBucket5: scoreBucket5(score),
+            direction: h1Trend.direction,
+            h1Direction: h1Trend.direction,
+            m15Direction: m15Trend.direction,
+            h1MarketState: h1Trend.marketState,
+            m15MarketState: m15Trend.marketState,
+            h1Structure: h1Trend.structure,
+            m15Structure: m15Trend.structure,
+            timeframeAligned: confidence.timeframeAligned,
+            riskRewardRatio: setup.riskRewardRatio,
+            entryPrice: setup.entryPrice,
+            stopLoss: setup.stopLoss,
+            takeProfit1: setup.tp1,
+            takeProfit2: setup.tp2,
+            takeProfit3: setup.tp3,
+            orderSimulated: Boolean(outcome),
+            filled: outcome?.filled ?? false,
+            outcome: sampleOutcome,
+            grossR: trade ? Number(trade.grossR.toFixed(4)) : null,
+            netRAt005Cost: trade ? Number((trade.grossR - BASE_FRICTION_R).toFixed(4)) : null,
+            exitAt: trade ? m15[trade.exitIndex]?.datetime ?? null : null,
+            checklist: confidence.checklist,
+          });
         }
       }
     }
@@ -377,5 +507,8 @@ export function runConfidenceBacktest(
       "The final 40 M15 bars of each split are excluded as signal times so pending entries and the maximum holding window finish inside their own period.",
       "Provider timestamps have no explicit timezone in the candle rows; calculations assume H1 and M15 use the same provider timezone and reports retain the original timestamp strings.",
     ],
+    ...(includeSamples
+      ? { samples: periods.flatMap((period) => period.samples) }
+      : {}),
   };
 }

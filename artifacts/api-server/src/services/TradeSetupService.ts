@@ -59,6 +59,7 @@ export function applySetupAdvisory(setup: TradeSetup, advisory: SetupAdvisory): 
   const inZone = setup.currentPrice >= setup.entryZoneMin && setup.currentPrice <= setup.entryZoneMax;
   const confirmation = check("Confirmation Candle");
   const rr = check("Risk Reward Bagus");
+  const rrTooSmall = setup.riskRewardRatio < 1;
   const coreChecks = [
     advisory.timeframeAligned,
     check("Struktur HH-HL/LH-LL"),
@@ -66,18 +67,21 @@ export function applySetupAdvisory(setup: TradeSetup, advisory: SetupAdvisory): 
     rr,
   ];
 
-  const status: TradeSetupStatus = !inZone || !confirmation
+  const status: TradeSetupStatus = rrTooSmall
     ? "WAIT"
-    : coreChecks.some((passed) => !passed) || advisory.newsStatus !== "CLEAR" || advisory.score < 70
-      ? "CAUTION"
-      : "READY";
+    : !inZone || !confirmation
+      ? "WAIT"
+      : coreChecks.some((passed) => !passed) || advisory.newsStatus !== "CLEAR" || advisory.score < 70
+        ? "CAUTION"
+        : "READY";
 
   const warnings = [
     !advisory.timeframeAligned ? "H1/M15 belum searah dan sama-sama trending" : "",
     !check("Struktur HH-HL/LH-LL") ? "struktur swing belum mendukung penuh" : "",
     !check("DMI + ADX Mendukung") ? "DMI/ADX belum mendukung penuh" : "",
     !confirmation ? "tunggu candle konfirmasi yang lebih jelas" : "",
-    !rr ? "RR rencana di bawah 1:1.5" : "",
+    rrTooSmall ? `TP2 terpotong struktur sehingga RR hanya ${setup.riskRewardRatio.toFixed(2)}; tunggu level dengan ruang lebih lega` : "",
+    !rrTooSmall && !rr ? "RR rencana di bawah 1:1.5" : "",
     advisory.newsStatus === "HIGH_RISK" ? "risiko berita tinggi mengurangi skor, bukan memblokir setup" : "",
     advisory.newsStatus === "CAUTION" ? "ada risiko berita sedang" : "",
     advisory.newsStatus === "UNAVAILABLE" ? "data berita tidak lengkap; skor disesuaikan" : "",
@@ -121,6 +125,25 @@ export function buildTradeSetup(
   const decimals = PRICE_DECIMALS[pair] ?? 5;
   const pipSize = PIP_SIZE[pair] ?? 0.0001;
   const fix = (value: number) => Number(value.toFixed(decimals));
+  const oneTick = Math.pow(10, -decimals);
+
+  // Always keep the plan geometrically valid. Rounding a very close target or
+  // stop can otherwise place a SELL take-profit above the entry (or a BUY
+  // take-profit below it) even though the raw ATR math was correct.
+  const ensureStopSide = (value: number) => {
+    const fixed = fix(value);
+    if (direction === "BUY") {
+      return fixed < entryPrice ? fixed : fix(entryPrice - oneTick);
+    }
+    return fixed > entryPrice ? fixed : fix(entryPrice + oneTick);
+  };
+  const ensureTargetSide = (value: number, boundary: number) => {
+    const fixed = fix(value);
+    if (direction === "BUY") {
+      return fixed > boundary ? fixed : fix(boundary + oneTick);
+    }
+    return fixed < boundary ? fixed : fix(boundary - oneTick);
+  };
 
   const swingHighs = findSwingHighs(candles, 2, atr, 0.25);
   const swingLows = findSwingLows(candles, 2, atr, 0.25);
@@ -140,13 +163,14 @@ export function buildTradeSetup(
   // Structural invalidation. If no confirmed swing exists, use a conservative
   // ATR fallback rather than inventing a precise support/resistance level.
   const structuralStop = direction === "BUY"
-    ? fix(Math.min(entryZoneMin - 0.2 * atr, (lastSwingLow ?? entryZoneMin - atr) - 0.2 * atr))
-    : fix(Math.max(entryZoneMax + 0.2 * atr, (lastSwingHigh ?? entryZoneMax + atr) + 0.2 * atr));
+    ? Math.min(entryZoneMin - 0.2 * atr, (lastSwingLow ?? entryZoneMin - atr) - 0.2 * atr)
+    : Math.max(entryZoneMax + 0.2 * atr, (lastSwingHigh ?? entryZoneMax + atr) + 0.2 * atr);
 
   const minimumRiskDistance = 0.6 * atr;
-  const stopLoss = direction === "BUY"
-    ? fix(Math.min(structuralStop, entryPrice - minimumRiskDistance))
-    : fix(Math.max(structuralStop, entryPrice + minimumRiskDistance));
+  const rawStopLoss = direction === "BUY"
+    ? Math.min(structuralStop, entryPrice - minimumRiskDistance)
+    : Math.max(structuralStop, entryPrice + minimumRiskDistance);
+  const stopLoss = ensureStopSide(rawStopLoss);
   const risk = Math.abs(entryPrice - stopLoss);
 
   const targetReference = direction === "BUY"
@@ -160,16 +184,25 @@ export function buildTradeSetup(
     .sort((a, b) => b - a)[0];
   const capTarget = (rawTarget: number) => {
     if (direction === "BUY" && nextResistance !== undefined) {
-      return fix(Math.min(nextResistance, rawTarget));
+      return Math.min(nextResistance, rawTarget);
     }
     if (direction === "SELL" && nextSupport !== undefined) {
-      return fix(Math.max(nextSupport, rawTarget));
+      return Math.max(nextSupport, rawTarget);
     }
-    return fix(rawTarget);
+    return rawTarget;
   };
-  const tp1 = capTarget(direction === "BUY" ? entryPrice + risk : entryPrice - risk);
-  const tp2 = capTarget(direction === "BUY" ? entryPrice + 2 * risk : entryPrice - 2 * risk);
-  const tp3 = capTarget(direction === "BUY" ? entryPrice + 3 * risk : entryPrice - 3 * risk);
+  const tp1 = ensureTargetSide(
+    capTarget(direction === "BUY" ? entryPrice + risk : entryPrice - risk),
+    entryPrice,
+  );
+  const tp2 = ensureTargetSide(
+    capTarget(direction === "BUY" ? entryPrice + 2 * risk : entryPrice - 2 * risk),
+    tp1,
+  );
+  const tp3 = ensureTargetSide(
+    capTarget(direction === "BUY" ? entryPrice + 3 * risk : entryPrice - 3 * risk),
+    tp2,
+  );
 
   // RR describes the planned entry midpoint to TP2, including structural caps.
   const riskRewardRatio = Number(

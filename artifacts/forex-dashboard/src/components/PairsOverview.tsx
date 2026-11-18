@@ -8,6 +8,13 @@ interface PairsOverviewProps {
   onPairSelect: (pair: string) => void;
 }
 
+function confidenceTone(score: number) {
+  if (score >= 55) return { text: 'text-primary', bg: 'bg-primary/10', label: 'KUAT' };
+  if (score >= 45) return { text: 'text-amber-400', bg: 'bg-amber-500/10', label: 'SEDANG' };
+  if (score >= 35) return { text: 'text-orange-400', bg: 'bg-orange-500/10', label: 'WASPADA' };
+  return { text: 'text-destructive', bg: 'bg-destructive/10', label: 'LEMAH' };
+}
+
 export function PairsOverview({ pairs, selectedPair, onPairSelect }: PairsOverviewProps) {
   return (
     <div className="space-y-4" data-testid="section-pairs-overview">
@@ -19,6 +26,7 @@ export function PairsOverview({ pairs, selectedPair, onPairSelect }: PairsOvervi
           const bgColor = isBuy ? 'bg-primary/10' : 'bg-destructive/10';
           const borderColor = isBuy ? 'border-primary/30' : 'border-destructive/30';
           const textColor = isBuy ? 'text-primary' : 'text-destructive';
+          const scoreTone = confidenceTone(pair.confidence);
 
           return (
             <motion.button
@@ -49,8 +57,8 @@ export function PairsOverview({ pairs, selectedPair, onPairSelect }: PairsOvervi
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <span className="font-mono">{pair.confidence}/100</span>
-                  <span className={`px-2 py-0.5 rounded ${bgColor} ${textColor}`}>
-                    {pair.confidenceLevel}
+                  <span className={`rounded px-2 py-0.5 font-semibold ${scoreTone.bg} ${scoreTone.text}`}>
+                    {scoreTone.label}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 text-xs">
