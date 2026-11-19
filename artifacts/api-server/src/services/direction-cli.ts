@@ -9,9 +9,9 @@
  *   pnpm --filter @workspace/api-server run backtest:direction
  *
  * Label definition (evaluation only — it never sets the trader's TP or SL):
- *   within the next HORIZON_BARS closed M15 bars, does price touch +1 ATR
- *   before -1 ATR? If neither barrier is touched, the sign of the horizon return
- *   decides. A bar that touches both is resolved by that bar's close.
+ *   within the next HORIZON_BARS closed M15 bars, does price touch +BARRIER_ATR
+ *   before -BARRIER_ATR? If neither barrier is touched, the sign of the horizon
+ *   return decides. A bar that touches both is resolved by that bar's close.
  *
  * Overlap: features are sampled every 4 bars (1 hour) but a label spans the whole
  * horizon, so neighbouring rows share most of their future path. Rows are useful
@@ -93,7 +93,7 @@ function utcMs(candle: Candle): number {
   return ms;
 }
 
-/** +1 ATR before -1 ATR inside the horizon, else the sign of the horizon return. */
+/** +BARRIER_ATR before -BARRIER_ATR inside the horizon, else the sign of the horizon return. */
 function labelForward(m15: Candle[], index: number, atr: number): number | null {
   const entry = m15[index].close;
   const up = entry + BARRIER_ATR * atr;
