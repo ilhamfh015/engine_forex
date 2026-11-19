@@ -16,4 +16,8 @@ export interface ChecklistItem {
   passed: boolean;
   /** Weight of this condition in the confidence score (0-1) */
   weight: number;
+  /** Partial credit earned for this condition (0-1). Points are rounded weight x credit x 100. */
+  credit: number;
+  /** Rounded points this condition contributes; the confidence score is the sum of these points. */
+  points: number;
 }

@@ -305,10 +305,18 @@ components:
         weight:
           type: number
           description: Weight of this condition in the confidence score (0-1)
+        credit:
+          type: number
+          description: Partial credit earned for this condition (0-1). Points are rounded weight x credit x 100.
+        points:
+          type: number
+          description: Rounded points this condition contributes; the confidence score is the sum of these points.
       required:
         - label
         - passed
         - weight
+        - credit
+        - points
 
     NewsItem:
       type: object

@@ -9,7 +9,7 @@ test("structure confirmation alone does not claim price is in the value zone", (
     "BUY",
     70,
     "Medium",
-    [{ label: "Struktur HH-HL/LH-LL", passed: true, weight: 0.15 }],
+    [{ label: "Struktur HH-HL/LH-LL", passed: true, weight: 0.15, credit: 1, points: 15 }],
   );
 
   assert.match(summary.reason, /belum mencapai zona entry ideal/i);

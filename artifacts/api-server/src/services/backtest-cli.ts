@@ -184,12 +184,14 @@ for (const report of reports) {
 }
 
 const signalRows = [
-  "pair,scenario,period,signal_at,score,score_band,score_bucket_5,direction,h1_market_state,m15_market_state,h1_structure,m15_structure,timeframe_aligned,risk_reward,entry,stop_loss,tp1,tp2,tp3,order_simulated,filled,outcome,gross_r,net_r_005,exit_at,checklist_passed,checklist_failed",
+  "pair,scenario,period,signal_at,score,score_band,score_bucket_5,direction,h1_market_state,m15_market_state,h1_structure,m15_structure,timeframe_aligned,risk_reward,entry,stop_loss,tp1,tp2,tp3,order_simulated,filled,outcome,gross_r,net_r_005,exit_at,checklist_passed,checklist_failed,checklist_credits,checklist_points,rsi_m15,dist_ema_atr,value_zone_dist_atr,bars_since_pullback,adx_min",
 ];
 for (const report of reports) {
   for (const sample of report.samples ?? []) {
     const passed = sample.checklist.filter((item) => item.passed).map((item) => item.label).join("|");
     const failed = sample.checklist.filter((item) => !item.passed).map((item) => item.label).join("|");
+    const credits = sample.checklist.map((item) => `${item.label}=${item.credit}`).join("|");
+    const points = sample.checklist.map((item) => `${item.label}=${item.points}`).join("|");
     signalRows.push([
       csvCell(sample.pair),
       csvCell(sample.scoreScenario),
@@ -218,6 +220,13 @@ for (const report of reports) {
       csvCell(sample.exitAt),
       csvCell(passed),
       csvCell(failed),
+      csvCell(credits),
+      csvCell(points),
+      sample.metrics.rsiM15,
+      sample.metrics.distanceEmaAtr,
+      sample.metrics.valueZoneDistanceAtr,
+      sample.metrics.barsSincePullback,
+      sample.metrics.adxMin,
     ].join(","));
   }
 }

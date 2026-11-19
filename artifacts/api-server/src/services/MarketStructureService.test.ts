@@ -189,10 +189,10 @@ test("misaligned trends and high news risk produce a caution, not NO_TRADE", () 
     score: 35,
     timeframeAligned: false,
     checklist: [
-      { label: "Struktur HH-HL/LH-LL", passed: false, weight: 0.15 },
-      { label: "DMI + ADX Mendukung", passed: false, weight: 0.15 },
-      { label: "Confirmation Candle", passed: true, weight: 0.13 },
-      { label: "Risk Reward Bagus", passed: true, weight: 0.05 },
+      { label: "Struktur HH-HL/LH-LL", passed: false, weight: 0.15, credit: 0, points: 0 },
+      { label: "DMI + ADX Mendukung", passed: false, weight: 0.15, credit: 0, points: 0 },
+      { label: "Confirmation Candle", passed: true, weight: 0.13, credit: 1, points: 13 },
+      { label: "Risk Reward Bagus", passed: true, weight: 0.05, credit: 1, points: 5 },
     ],
     newsStatus: "HIGH_RISK",
   });

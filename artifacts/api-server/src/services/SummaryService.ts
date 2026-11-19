@@ -71,11 +71,11 @@ function buildReason(
   }
 
   if (newsRisk.status === "HIGH_RISK") {
-    lines.push(`Risiko berita tinggi (mengurangi skor, bukan memblokir setup): ${newsRisk.headline}`);
+    lines.push(`Risiko berita tinggi (peringatan saja, bobot berita 0): ${newsRisk.headline}`);
   } else if (newsRisk.status === "CAUTION") {
     lines.push(`Risiko berita sedang: ${newsRisk.headline}`);
   } else if (newsRisk.status === "UNAVAILABLE") {
-    lines.push("Data berita tidak lengkap; skor disesuaikan dan rencana tetap ditampilkan.");
+    lines.push("Data berita tidak lengkap; bobot berita 0 dan rencana tetap ditampilkan.");
   } else {
     lines.push("Tidak ada risiko berita utama yang terdeteksi pada sumber yang diperiksa.");
   }

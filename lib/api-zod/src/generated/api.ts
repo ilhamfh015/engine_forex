@@ -66,7 +66,9 @@ export const GetAnalysisResponse = zod.object({
   "checklist": zod.array(zod.object({
   "label": zod.string().describe('Human-readable label of the condition'),
   "passed": zod.boolean().describe('Whether the condition is met'),
-  "weight": zod.number().describe('Weight of this condition in the confidence score (0-1)')
+  "weight": zod.number().describe('Weight of this condition in the confidence score (0-1)'),
+  "credit": zod.number().describe('Partial credit earned for this condition (0-1). Points are rounded weight x credit x 100.'),
+  "points": zod.number().describe('Rounded points this condition contributes; the confidence score is the sum of these points.')
 }).describe('Single entry analysis condition')),
   "summary": zod.object({
   "bias": zod.enum(['BUY', 'SELL']),

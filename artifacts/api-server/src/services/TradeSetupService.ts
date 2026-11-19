@@ -20,7 +20,7 @@ import {
   PRICE_DECIMALS,
 } from "./TwelveDataService.js";
 import type { MarketState, TrendDirection } from "./MarketStructureService.js";
-import type { ChecklistItem } from "./EntryConfidenceService.js";
+import { SCORE_CUTOFFS, type ChecklistItem } from "./EntryConfidenceService.js";
 import type { NewsRiskStatus } from "./NewsService.js";
 
 export type TradeSetupStatus = "READY" | "WAIT" | "CAUTION";
@@ -71,7 +71,7 @@ export function applySetupAdvisory(setup: TradeSetup, advisory: SetupAdvisory): 
     ? "WAIT"
     : !inZone || !confirmation
       ? "WAIT"
-      : coreChecks.some((passed) => !passed) || advisory.newsStatus !== "CLEAR" || advisory.score < 70
+      : coreChecks.some((passed) => !passed) || advisory.newsStatus !== "CLEAR" || advisory.score < SCORE_CUTOFFS[2]
         ? "CAUTION"
         : "READY";
 
@@ -82,10 +82,10 @@ export function applySetupAdvisory(setup: TradeSetup, advisory: SetupAdvisory): 
     !confirmation ? "tunggu candle konfirmasi yang lebih jelas" : "",
     rrTooSmall ? `TP2 terpotong struktur sehingga RR hanya ${setup.riskRewardRatio.toFixed(2)}; tunggu level dengan ruang lebih lega` : "",
     !rrTooSmall && !rr ? "RR rencana di bawah 1:1.5" : "",
-    advisory.newsStatus === "HIGH_RISK" ? "risiko berita tinggi mengurangi skor, bukan memblokir setup" : "",
+    advisory.newsStatus === "HIGH_RISK" ? "risiko berita tinggi (peringatan saja, bobot berita 0), bukan memblokir setup" : "",
     advisory.newsStatus === "CAUTION" ? "ada risiko berita sedang" : "",
-    advisory.newsStatus === "UNAVAILABLE" ? "data berita tidak lengkap; skor disesuaikan" : "",
-    advisory.score < 70 ? `skor konfluensi ${advisory.score}/100` : "",
+    advisory.newsStatus === "UNAVAILABLE" ? "data berita tidak lengkap (bobot berita 0, hanya info)" : "",
+    advisory.score < SCORE_CUTOFFS[2] ? `skor konfluensi ${advisory.score}/100` : "",
   ].filter(Boolean);
 
   const statusReason = status === "READY"

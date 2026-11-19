@@ -327,7 +327,7 @@ export function buildNewsRiskFromSources(
   }
   if (partialData) {
     return {
-      ...emptyRisk("UNAVAILABLE", "Sebagian sumber berita tidak tersedia. Data yang berhasil diambil tetap ditampilkan dan skor disesuaikan."),
+      ...emptyRisk("UNAVAILABLE", "Sebagian sumber berita tidak tersedia. Data yang berhasil diambil tetap ditampilkan; risiko berita tampil sebagai peringatan."),
       source,
       items: recentItems,
       upcomingEvents,

@@ -144,6 +144,9 @@ export function ConfidenceCard({ confidence, confidenceLevel, checklist, advisor
             // look like they cost points, so they get a neutral marker instead
             // of a green check or a red cross.
             const informational = item.weight === 0;
+            const maxPoints = Math.round(item.weight * 100);
+            // Partial credit is visible: a factor can earn part of its weight.
+            const partial = !informational && item.credit < 0.99;
             return (
               <motion.div
                 key={idx}
@@ -165,8 +168,11 @@ export function ConfidenceCard({ confidence, confidenceLevel, checklist, advisor
                     {item.label}
                   </p>
                 </div>
-                <span className="text-xs text-muted-foreground font-mono">
-                  {informational ? 'info' : `${Math.round(item.weight * 100)}%`}
+                <span
+                  className={`text-xs font-mono ${partial ? 'text-amber-400' : 'text-muted-foreground'}`}
+                  title={informational ? 'Konteks saja, tanpa bobot skor' : `Credit ${Math.round(item.credit * 100)}% dari bobot ${maxPoints} poin`}
+                >
+                  {informational ? 'info' : `${item.points}/${maxPoints}`}
                 </span>
               </motion.div>
             );

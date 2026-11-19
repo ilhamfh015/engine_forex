@@ -164,7 +164,7 @@ test("includeSamples exports per-signal features and outcomes without changing a
   for (const sample of withSamples.samples!) {
     assert.equal(scoreBand(sample.score), sample.scoreBand);
     assert.equal(scoreBucket5(sample.score), sample.scoreBucket5);
-    assert.equal(sample.checklist.length, 8);
+    assert.equal(sample.checklist.length, 9);
     assert.ok(["BUY", "SELL"].includes(sample.direction));
     if (sample.direction === "SELL") {
       assert.ok(sample.stopLoss > sample.entryPrice, "SELL stop must sit above entry");

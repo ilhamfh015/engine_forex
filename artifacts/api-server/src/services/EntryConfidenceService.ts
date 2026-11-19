@@ -5,6 +5,16 @@
  *
  * Every factor is advisory: it can lower the score and add context, but cannot
  * prevent the app from returning a directional setup.
+ *
+ * The score is a pure sum of per-factor points:
+ *
+ *   points_i = round(weight_i × credit_i × 100)
+ *   score    = Σ points_i
+ *
+ * `credit` is a 0–1 partial-credit value instead of a binary pass/fail, so a
+ * factor that is only partly satisfied still contributes part of its weight.
+ * The rounded points are what the dashboard displays, which means the score can
+ * be reconciled by adding the visible item points together.
  */
 
 import type { Candle } from "./TwelveDataService.js";
@@ -21,40 +31,60 @@ export interface ChecklistItem {
   label: string;
   passed: boolean;
   weight: number;
+  /** 0–1 partial credit earned for this factor. */
+  credit: number;
+  /** Rounded points this factor contributes to the score. */
+  points: number;
 }
 
 export type ConfidenceLevel = "High" | "Medium" | "Low" | "VeryLow";
 
 /**
- * Scoring weights for the no-cap, purely additive score. Selected on the
- * calibration split and checked unchanged on the chronological holdout.
+ * Band cutoffs, fitted on the calibration split and checked unchanged on the
+ * chronological holdout. Exported because the setup advisory reuses the top
+ * cutoff instead of hard-coding a second threshold.
+ */
+export const SCORE_CUTOFFS = [35, 45, 55] as const;
+
+/**
+ * Scoring weights for the no-cap, additive, partial-credit score.
  *
- * Removing score caps changed the score distribution, so the capped-engine
- * weights no longer ordered the calibration bands monotonically. These weights
- * restore monotonic ordering in both splits (0-34/35-44/45-54/55-100) while
- * keeping the news weight at 0.10 and the High band positive on every pair in
- * the holdout.
+ * Fitted on the calibration split only and then checked once on the
+ * chronological holdout. Swing structure and momentum carry weight 0: neither
+ * kept the same sign across the two splits, so they stay in the checklist as
+ * visible context but must not move the score.
  *
- * Swing structure and momentum carry weight 0 on purpose. Neither kept the same
- * sign across the two splits, so they stay in the checklist as visible context
- * but must not move the score.
+ * News also carries weight 0. The replay only has a news-neutral scenario, so
+ * the old 0.10 news weight added a constant 10 points to every historical trade
+ * — zero discriminating power — while adding unvalidated variance live.
+ * Headline risk is still surfaced as an advisory.
  *
- * Value zone carries the largest share because it was the only factor with a
- * consistently positive lift across splits. Reward/risk is scored continuously
- * as RR/3 (capped at 1) so the planned distance-to-target moves the score
- * smoothly without any hard ceiling; an RR below 1 is still warned about and
- * marks the setup WAIT, but it never rewrites the score.
+ * The remaining weights sum to 1, so a perfect setup still reaches 100.
  */
 export const SCORING_WEIGHTS = {
-  alignment: 0.15,
+  alignment: 0.16,
   structure: 0,
-  dmi: 0.22,
-  valueZone: 0.30,
-  confirmation: 0.06,
+  dmi: 0.24,
+  valueZone: 0.22,
+  confirmation: 0.05,
   momentum: 0,
-  rewardRisk: 0.17,
-  news: 0.10,
+  entryFreshness: 0.14,
+  rewardRisk: 0.19,
+  news: 0,
 } as const;
+
+export interface ConfidenceMetrics {
+  /** M15 RSI used by the entry-freshness factor. */
+  rsiM15: number;
+  /** Distance from the M15 EMA21 in ATR units (extension proxy). */
+  distanceEmaAtr: number;
+  /** Distance from the value-zone anchor in ATR units. */
+  valueZoneDistanceAtr: number;
+  /** Bars since price last traded within 0.5 ATR of the M15 EMA21. */
+  barsSincePullback: number;
+  /** Lower of the two ADX readings. */
+  adxMin: number;
+}
 
 export interface ConfidenceResult {
   score: number;
@@ -65,71 +95,127 @@ export interface ConfidenceResult {
   timeframeAligned: boolean;
   tradeAllowed: boolean;
   note: string;
+  /** Diagnostics for the backtest export; not returned by the live API. */
+  metrics: ConfidenceMetrics;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value));
 }
 
 // ─── Individual condition checks ──────────────────────────────────────────────
 
 /**
- * Condition 1 — Price in value zone (near EMA21 or recent swing bounce).
+ * Alignment credit.
  *
- * Swing proximity only counts for a recently confirmed pivot; stale swings
- * must not keep a value-zone condition passing indefinitely.
+ * 1.0 when both timeframes trend in the same direction, 0.5 when they agree on
+ * direction but at least one is still transitioning, 0.2 when one is ranging,
+ * and 0 when they disagree.
  */
-function checkNearHLLH(
+function evaluateAlignment(h1: TrendData, m15: TrendData): number {
+  if (h1.direction !== m15.direction) return 0;
+  const states = [h1.marketState, m15.marketState];
+  if (states.some((state) => state === "RANGING")) return 0.2;
+  if (states.every((state) => state === "TRENDING")) return 1;
+  return 0.5;
+}
+
+/**
+ * DMI + ADX credit.
+ *
+ * Full credit needs directional agreement on both timeframes, ADX >= 25 on
+ * both, and a non-falling ADX slope. ADX 20–25 keeps 70% of the weight, and a
+ * falling slope halves whatever is left. Directional conflict or ADX below 20
+ * earns nothing.
+ */
+function evaluateDmi(h1: TrendData, m15: TrendData, bias: TrendDirection): number {
+  const diAligned = bias === "BUY"
+    ? h1.diPlus > h1.diMinus && m15.diPlus > m15.diMinus
+    : h1.diMinus > h1.diPlus && m15.diMinus > m15.diPlus;
+  const adxMin = Math.min(h1.adx, m15.adx);
+  if (!diAligned || adxMin < 20) return 0;
+
+  let credit = adxMin >= 25 ? 1 : 0.7;
+  const slopeOk = h1.adxSlope > -3 && m15.adxSlope > -3;
+  if (!slopeOk) credit *= 0.5;
+  return credit;
+}
+
+/**
+ * Value-zone credit.
+ *
+ * The gap between price and the nearest valid anchor (EMA21, or the most recent
+ * confirmed swing) is measured in ATR. Up to 0.5 ATR earns full credit, the
+ * 0.5–1.0 ATR band tapers to 0.6, and beyond 1 ATR the factor earns nothing.
+ * This keeps the old 1-ATR pass boundary but stops treating "0.9 ATR away" and
+ * "on the level" as identical setups.
+ */
+function evaluateValueZone(
   candles: Candle[],
   direction: TrendDirection,
   atr: number,
-): boolean {
+): { credit: number; distanceAtr: number } {
   const n = candles.length;
   const current = candles[n - 1].close;
-  const ema21arr = calcEMA(candles, 21);
-  const ema21 = ema21arr[n - 1];
+  const ema21 = calcEMA(candles, 21)[n - 1] ?? current;
 
   const maxSwingAge = 24;
-  const swingHighs = findSwingHighPoints(candles, 2, atr, 0.3)
-    .filter((point) => n - 1 - point.index <= maxSwingAge);
-  const swingLows = findSwingLowPoints(candles, 2, atr, 0.3)
-    .filter((point) => n - 1 - point.index <= maxSwingAge);
+  const swings = direction === "BUY"
+    ? findSwingLowPoints(candles, 2, atr, 0.3)
+      .filter((point) => n - 1 - point.index <= maxSwingAge)
+      .map((point) => point.price)
+    : findSwingHighPoints(candles, 2, atr, 0.3)
+      .filter((point) => n - 1 - point.index <= maxSwingAge)
+      .map((point) => point.price);
 
-  if (direction === "BUY") {
-    // EMA21 proximity
-    if (current >= ema21 && current - ema21 <= 1.0 * atr) return true;
-    // Fresh swing low bounce
-    if (swingLows.length > 0) {
-      const lastLow = swingLows[swingLows.length - 1].price;
-      if (current >= lastLow && current - lastLow <= 1.0 * atr) return true;
-    }
-  } else {
-    // EMA21 proximity
-    if (current <= ema21 && ema21 - current <= 1.0 * atr) return true;
-    // Fresh swing high rejection
-    if (swingHighs.length > 0) {
-      const lastHigh = swingHighs[swingHighs.length - 1].price;
-      if (current <= lastHigh && lastHigh - current <= 1.0 * atr) return true;
-    }
+  const anchors = [ema21, ...(swings.length ? [swings[swings.length - 1]] : [])];
+  let distanceAtr = Number.POSITIVE_INFINITY;
+  for (const anchor of anchors) {
+    const gap = direction === "BUY" ? current - anchor : anchor - current;
+    // Price must sit on the correct side of the anchor; otherwise the level is
+    // overhead resistance / support below, not a value zone.
+    if (gap >= 0) distanceAtr = Math.min(distanceAtr, atr > 0 ? gap / atr : Infinity);
   }
-  return false;
+  if (!Number.isFinite(distanceAtr)) return { credit: 0, distanceAtr: 99 };
+
+  const credit = distanceAtr <= 0.5
+    ? 1
+    : distanceAtr <= 1
+      ? 1 - (0.4 * (distanceAtr - 0.5)) / 0.5
+      : 0;
+  return { credit: clamp01(credit), distanceAtr };
 }
 
 /**
- * Condition 2 — Confirmation Candle.
- * At least one of the last 2 closed candles confirms direction.
+ * Confirmation-candle credit: 1 for a strong directional body closing near the
+ * extreme, 0.5 for a directional body of at least 25% of range, 0 otherwise.
  */
-function checkConfirmationCandle(candles: Candle[], direction: TrendDirection): boolean {
-  if (candles.length < 2) return false;
-  return candles.slice(-2).some((c) => {
-    const range = Math.max(c.high - c.low, Number.EPSILON);
-    const bodyRatio = Math.abs(c.close - c.open) / range;
-    const closeNearExtreme = direction === "BUY"
-      ? (c.high - c.close) / range <= 0.25
-      : (c.close - c.low) / range <= 0.25;
-    const directional = direction === "BUY" ? c.close > c.open : c.close < c.open;
-    return directional && bodyRatio >= 0.45 && closeNearExtreme;
+function evaluateConfirmation(
+  candles: Candle[],
+  direction: TrendDirection,
+): { credit: number; strong: boolean } {
+  if (candles.length < 2) return { credit: 0, strong: false };
+  const recent = candles.slice(-2);
+  const stats = recent.map((candle) => {
+    const range = Math.max(candle.high - candle.low, Number.EPSILON);
+    return {
+      directional: direction === "BUY" ? candle.close > candle.open : candle.close < candle.open,
+      bodyRatio: Math.abs(candle.close - candle.open) / range,
+      closeNearExtreme: direction === "BUY"
+        ? (candle.high - candle.close) / range <= 0.25
+        : (candle.close - candle.low) / range <= 0.25,
+    };
   });
+  const strong = stats.some((s) => s.directional && s.bodyRatio >= 0.45 && s.closeNearExtreme);
+  if (strong) return { credit: 1, strong: true };
+  const weak = stats.some((s) => s.directional && s.bodyRatio >= 0.25);
+  return { credit: weak ? 0.5 : 0, strong: false };
 }
 
 /**
- * Condition 3 — Momentum Candle.
+ * Condition — Momentum Candle.
  * Any of last 5 closed candles has a strong body (≥55% of range) in the trend direction.
  */
 function checkMomentumCandle(candles: Candle[], direction: TrendDirection): boolean {
@@ -155,14 +241,61 @@ function checkHealthyMomentum(candles: Candle[], direction: TrendDirection, atr:
   return directionalCloses >= 2 && averageRange <= atr * 1.8 && lastBody / Math.max(last.high - last.low, Number.EPSILON) >= 0.35;
 }
 
+/**
+ * Entry-freshness credit (anti-late-entry).
+ *
+ * Two independent extension proxies, both normalised to 0–1:
+ *   - bars since price last traded within 0.5 ATR of the M15 EMA21 (time since
+ *     the last pause): full credit at 0 bars, zero at 24 bars.
+ *   - RSI extremity: full credit at RSI <= 65 (BUY) / >= 35 (SELL), zero at
+ *     RSI >= 78 / <= 22.
+ *
+ * credit = 0.6 × barsCredit + 0.4 × rsiCredit (constants fixed before fitting).
+ */
+function evaluateEntryFreshness(
+  candles: Candle[],
+  direction: TrendDirection,
+  atr: number,
+  rsi: number,
+): { credit: number; barsSincePullback: number; distanceEmaAtr: number } {
+  const ema21 = calcEMA(candles, 21);
+  const n = candles.length;
+  const current = candles[n - 1].close;
+  const emaNow = ema21[n - 1] ?? current;
+  const distanceEmaAtr = atr > 0 ? Math.abs(current - emaNow) / atr : 99;
+
+  const lookback = Math.min(48, n - 1);
+  let barsSincePullback = lookback;
+  for (let k = 1; k <= lookback; k++) {
+    const index = n - k;
+    if (index < 0) break;
+    const gap = atr > 0 ? Math.abs(candles[index].close - (ema21[index] ?? current)) / atr : 99;
+    if (gap <= 0.5) {
+      barsSincePullback = k - 1;
+      break;
+    }
+  }
+
+  const barsCredit = clamp01(1 - barsSincePullback / 24);
+  const rsiCredit = direction === "BUY"
+    ? clamp01((78 - rsi) / 13)
+    : clamp01((rsi - 22) / 13);
+  return {
+    credit: 0.6 * barsCredit + 0.4 * rsiCredit,
+    barsSincePullback,
+    distanceEmaAtr,
+  };
+}
+
 export function scoreToLevel(score: number): ConfidenceLevel {
   // Cutoffs are data-driven: fitted on the calibration split, then checked on
   // the chronological holdout. 35/45/55 was the configuration that stayed
   // monotonic in both splits and kept the top band positive on every pair.
   // Re-validate whenever the weights or the sample window change.
-  if (score >= 55) return "High";
-  if (score >= 45) return "Medium";
-  if (score >= 35) return "Low";
+  const [low, medium, high] = SCORE_CUTOFFS;
+  if (score >= high) return "High";
+  if (score >= medium) return "Medium";
+  if (score >= low) return "Low";
   return "VeryLow";
 }
 
@@ -174,19 +307,14 @@ export interface CriticalScoreFlags {
 }
 
 /**
- * The score is purely additive: 100 x the checklist weights that pass, plus the
- * news weight. It is never clamped to a ceiling, because clamping made the
- * displayed score weaker than the checklist justified and hid genuinely good
- * setups behind a number the user could not reconcile with the factors.
+ * The score is purely additive: the sum of the per-factor points. It is never
+ * clamped to a ceiling, because clamping made the displayed score weaker than
+ * the checklist justified and hid genuinely good setups behind a number the
+ * user could not reconcile with the factors.
  *
  * Critical gaps are still detected, but only as warnings. They explain the risk
  * next to the score and they feed the setup advisory (an RR below 1 still marks
  * the setup WAIT), without rewriting the score itself.
- *
- * The reward/risk ladder that used to cap the score was fitted on calibration
- * and checked on the holdout: RR >= 2 was the only bucket non-negative in both
- * splits, while 0.5-2 flipped sign between them. That is a reason to warn, not
- * a reason to overwrite a score.
  */
 export function applyScoreAdvisories(
   baseScore: number,
@@ -202,7 +330,7 @@ export function applyScoreAdvisories(
   if (flags.newsStatus === "HIGH_RISK") advisories.push("risiko berita tinggi");
   else if (flags.newsStatus === "UNAVAILABLE") {
     // A provider outage is missing information, not evidence of risk.
-    advisories.push("data berita tidak tersedia; bobot berita dikurangi");
+    advisories.push("data berita tidak tersedia (bobot berita 0, hanya info)");
   }
 
   return {
@@ -212,6 +340,12 @@ export function applyScoreAdvisories(
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
+
+interface RawFactor {
+  label: string;
+  weight: number;
+  credit: number;
+}
 
 export function calculateConfidence(
   pair: string,
@@ -223,6 +357,8 @@ export function calculateConfidence(
 ): ConfidenceResult {
   const bias = h1Trend.direction;
   const atr = calcATR(candles, 14);
+  // Strict alignment stays a separate boolean because the advisory and the
+  // setup status use it. The factor itself earns graded credit.
   const timeframeAligned =
     h1Trend.marketState === "TRENDING" &&
     m15Trend.marketState === "TRENDING" &&
@@ -230,45 +366,51 @@ export function calculateConfidence(
   const structureAligned =
     h1Trend.structure === (bias === "BUY" ? "HH-HL" : "LH-LL") &&
     m15Trend.structure === (bias === "BUY" ? "HH-HL" : "LH-LL");
-  const dmiAligned =
-    (bias === "BUY"
-      ? h1Trend.diPlus > h1Trend.diMinus && m15Trend.diPlus > m15Trend.diMinus
-      : h1Trend.diMinus > h1Trend.diPlus && m15Trend.diMinus > m15Trend.diPlus) &&
-    h1Trend.adx >= 20 &&
-    m15Trend.adx >= 20 &&
-    h1Trend.adxSlope > -3 &&
-    m15Trend.adxSlope > -3;
-  const newsControlled = newsRisk.riskScore < 35 && newsRisk.status === "CLEAR";
-  const confirmationCandle = checkConfirmationCandle(candles, bias);
 
-  const checklist: ChecklistItem[] = [
-    { label: "Alignment H1/M15",     passed: timeframeAligned,                        weight: SCORING_WEIGHTS.alignment },
-    { label: "Struktur HH-HL/LH-LL", passed: structureAligned,                        weight: SCORING_WEIGHTS.structure },
-    { label: "DMI + ADX Mendukung",  passed: dmiAligned,                              weight: SCORING_WEIGHTS.dmi },
-    { label: "Harga di Value Zone",  passed: checkNearHLLH(candles, bias, atr),       weight: SCORING_WEIGHTS.valueZone },
-    { label: "Confirmation Candle",  passed: confirmationCandle,                      weight: SCORING_WEIGHTS.confirmation },
-    { label: "Momentum Sehat",       passed: checkHealthyMomentum(candles, bias, atr) && checkMomentumCandle(candles, bias), weight: SCORING_WEIGHTS.momentum },
-    { label: "Risk Reward Bagus",    passed: plannedRiskReward >= 1.5,                weight: SCORING_WEIGHTS.rewardRisk },
-    { label: "Risiko Berita Rendah", passed: newsControlled,                          weight: SCORING_WEIGHTS.news },
+  const alignmentCredit = evaluateAlignment(h1Trend, m15Trend);
+  const dmiCredit = evaluateDmi(h1Trend, m15Trend, bias);
+  const valueZone = evaluateValueZone(candles, bias, atr);
+  const confirmation = evaluateConfirmation(candles, bias);
+  const freshness = evaluateEntryFreshness(candles, bias, atr, m15Trend.rsi);
+  const momentumPassed =
+    checkHealthyMomentum(candles, bias, atr) && checkMomentumCandle(candles, bias);
+  const rrCredit = clamp01(plannedRiskReward / 3);
+  const newsCredit = 1 - Math.max(0, Math.min(100, newsRisk.riskScore)) / 100;
+
+  const factors: RawFactor[] = [
+    { label: "Alignment H1/M15", weight: SCORING_WEIGHTS.alignment, credit: alignmentCredit },
+    { label: "Struktur HH-HL/LH-LL", weight: SCORING_WEIGHTS.structure, credit: structureAligned ? 1 : 0 },
+    { label: "DMI + ADX Mendukung", weight: SCORING_WEIGHTS.dmi, credit: dmiCredit },
+    { label: "Harga di Value Zone", weight: SCORING_WEIGHTS.valueZone, credit: valueZone.credit },
+    { label: "Confirmation Candle", weight: SCORING_WEIGHTS.confirmation, credit: confirmation.credit },
+    { label: "Momentum Sehat", weight: SCORING_WEIGHTS.momentum, credit: momentumPassed ? 1 : 0 },
+    { label: "Kesegaran Entry", weight: SCORING_WEIGHTS.entryFreshness, credit: freshness.credit },
+    { label: "Risk Reward Bagus", weight: SCORING_WEIGHTS.rewardRisk, credit: rrCredit },
+    { label: "Risiko Berita Rendah", weight: SCORING_WEIGHTS.news, credit: newsCredit },
   ];
 
-  // News and reward/risk are scored continuously. Their checklist passed states
-  // are display-only; awarding the full weight twice would double-count them.
-  // RR is normalised against 3R, so 1.5R earns half of its weight.
-  const rawScore = checklist.reduce((acc, item) => {
-    if (item.label === "Risiko Berita Rendah") {
-      return acc + item.weight * (1 - Math.max(0, Math.min(100, newsRisk.riskScore)) / 100);
-    }
-    if (item.label === "Risk Reward Bagus") {
-      const rrFraction = Math.max(0, Math.min(1, plannedRiskReward / 3));
-      return acc + item.weight * rrFraction;
-    }
-    return acc + (item.passed ? item.weight : 0);
-  }, 0);
-  const baseScore = Math.round(rawScore * 100);
+  const checklist: ChecklistItem[] = factors.map((factor) => {
+    // Round the credit first, then derive the points from that exact value, so
+    // the exported/displayed breakdown always multiplies back to the points.
+    const credit = Number(factor.credit.toFixed(3));
+    return {
+      label: factor.label,
+      // `passed` drives the dashboard checkmark and the setup advisory. A factor
+      // counts as passed once it earns at least half of its credit.
+      passed: factor.credit >= 0.5,
+      weight: factor.weight,
+      credit,
+      points: Math.round(factor.weight * credit * 100),
+    };
+  });
+
+  // Score is the sum of the visible item points, so the dashboard number can be
+  // reconciled by adding the list together. Weights sum to 1, so 100 remains
+  // reachable.
+  const baseScore = checklist.reduce((sum, item) => sum + item.points, 0);
   const { score, advisories } = applyScoreAdvisories(baseScore, {
     timeframeAligned,
-    confirmationCandle,
+    confirmationCandle: confirmation.strong,
     riskRewardRatio: plannedRiskReward,
     newsStatus: newsRisk.status,
   });
@@ -276,19 +418,21 @@ export function calculateConfidence(
   // Deprecated compatibility field: the score is advisory and never a hard gate.
   const tradeAllowed = true;
 
+  const byLabel = new Map(checklist.map((item) => [item.label, item]));
   const warnings = [
     !timeframeAligned ? "arah/state H1-M15 belum selaras" : "",
     !structureAligned ? "struktur swing belum mendukung penuh" : "",
-    !dmiAligned ? "DMI/ADX belum mendukung penuh" : "",
-    !checklist[3].passed ? "harga belum dekat zona value" : "",
-    !checklist[4].passed ? "candle konfirmasi belum kuat" : "",
-    !checklist[6].passed ? "RR rencana di bawah 1:1.5" : "",
+    !(byLabel.get("DMI + ADX Mendukung")?.passed ?? false) ? "DMI/ADX belum mendukung penuh" : "",
+    valueZone.credit < 0.5 ? "harga belum dekat zona value" : "",
+    !confirmation.strong ? "candle konfirmasi belum kuat" : "",
+    freshness.credit < 0.5 ? "entry sudah jauh dari titik pullback terakhir" : "",
+    plannedRiskReward < 1.5 ? "RR rencana di bawah 1:1.5" : "",
     newsRisk.status === "HIGH_RISK" ? `risiko berita tinggi: ${newsRisk.headline}` : "",
     newsRisk.status === "CAUTION" ? `risiko berita sedang: ${newsRisk.headline}` : "",
-    newsRisk.status === "UNAVAILABLE" ? "data berita tidak lengkap; skor disesuaikan" : "",
+    newsRisk.status === "UNAVAILABLE" ? "data berita tidak lengkap; bobot berita 0" : "",
   ].filter(Boolean);
 
-  const capNote = advisories.length > 0
+  const advisoryNote = advisories.length > 0
     ? ` Perhatian: ${advisories.join("; ")}.`
     : "";
 
@@ -299,6 +443,13 @@ export function calculateConfidence(
     checklist,
     timeframeAligned,
     tradeAllowed,
-    note: `Skor konfluensi ${pair}: ${score}/100 (heuristik, bukan probabilitas menang). Ini peringatan saja—sistem tidak memblokir setup.${capNote}${warnings.length > 0 ? ` Perlu diperhatikan: ${warnings.join("; ")}.` : " Tidak ada peringatan utama; tetap kelola risiko."}`,
+    note: `Skor konfluensi ${pair}: ${score}/100 (heuristik, bukan probabilitas menang). Ini peringatan saja—sistem tidak memblokir setup.${advisoryNote}${warnings.length > 0 ? ` Perlu diperhatikan: ${warnings.join("; ")}.` : " Tidak ada peringatan utama; tetap kelola risiko."}`,
+    metrics: {
+      rsiM15: Number(m15Trend.rsi.toFixed(1)),
+      distanceEmaAtr: Number(freshness.distanceEmaAtr.toFixed(2)),
+      valueZoneDistanceAtr: Number(valueZone.distanceAtr.toFixed(2)),
+      barsSincePullback: freshness.barsSincePullback,
+      adxMin: Number(Math.min(h1Trend.adx, m15Trend.adx).toFixed(1)),
+    },
   };
 }

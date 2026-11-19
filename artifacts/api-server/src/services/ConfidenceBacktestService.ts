@@ -1,6 +1,6 @@
 import type { Candle } from "./TwelveDataService.js";
 import { getClosedCandles } from "./TwelveDataService.js";
-import { calculateConfidence, type ChecklistItem } from "./EntryConfidenceService.js";
+import { calculateConfidence, type ChecklistItem, type ConfidenceMetrics } from "./EntryConfidenceService.js";
 import {
   analyzeTrendFromCandles,
   type MarketState,
@@ -79,6 +79,8 @@ export interface BacktestSignalSample {
   netRAt005Cost: number | null;
   exitAt: string | null;
   checklist: ChecklistItem[];
+  /** Inputs behind the partial-credit factors, for offline calibration. */
+  metrics: ConfidenceMetrics;
 }
 
 export interface BacktestScenarioReport {
@@ -474,6 +476,7 @@ export function runConfidenceBacktest(
             netRAt005Cost: trade ? Number((trade.grossR - BASE_FRICTION_R).toFixed(4)) : null,
             exitAt: trade ? m15[trade.exitIndex]?.datetime ?? null : null,
             checklist: confidence.checklist,
+            metrics: confidence.metrics,
           });
         }
       }
