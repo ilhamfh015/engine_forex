@@ -12,6 +12,7 @@ import {
 } from "@workspace/api-zod";
 import { analyzeTrendFromCandles, SUPPORTED_PAIRS } from "../services/MarketStructureService.js";
 import { calculateConfidence } from "../services/EntryConfidenceService.js";
+import { scoreDirection } from "../services/DirectionModelService.js";
 import { generateSummary } from "../services/SummaryService.js";
 import { applySetupAdvisory, buildTradeSetup } from "../services/TradeSetupService.js";
 import { getCandles, getClosedCandles } from "../services/TwelveDataService.js";
@@ -63,6 +64,11 @@ router.get("/analysis/:pair", async (req: Request, res: Response) => {
     const closedM15 = getClosedCandles(candlesM15);
     const trendH1 = analyzeTrendFromCandles(closedH1);
     const trendM15 = analyzeTrendFromCandles(closedM15);
+
+    // Direction forecast: an independent probability that price moves up
+    // before down over the model's prediction horizon (5 hours). It never sets
+    // TP or SL; it only answers "which side is more likely next".
+    const directionForecast = scoreDirection(closedH1, closedM15, trendH1, trendM15);
 
     // 3. Build trade setup before confidence so the score uses the actual
     // planned entry midpoint → TP2 RR rather than a separate approximation.
@@ -143,6 +149,7 @@ router.get("/analysis/:pair", async (req: Request, res: Response) => {
       note,
       tradeSetup,
       newsRisk,
+      directionForecast,
     });
   } catch (err) {
     req.log.error({ err }, "Error generating analysis");

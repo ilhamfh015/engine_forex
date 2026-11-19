@@ -4,6 +4,7 @@ import { ChevronDown, Layers3 } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { TrendCard } from '@/components/TrendCard';
 import { ConfidenceCard } from '@/components/ConfidenceCard';
+import { DirectionCard } from '@/components/DirectionCard';
 import { SummaryCard } from '@/components/SummaryCard';
 import { PairsOverview } from '@/components/PairsOverview';
 import { TradingViewWidget } from '@/components/TradingViewWidget';
@@ -145,6 +146,8 @@ export default function Dashboard() {
             </Button>
           </div>
         )}
+
+        <DirectionCard forecast={analysis.directionForecast} index={0} />
 
         <section aria-label="Analisis teknikal utama" className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-5">
           <TrendCard timeframe="H1" trend={analysis.trendH1} index={0} />

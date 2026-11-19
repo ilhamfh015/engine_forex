@@ -477,6 +477,8 @@ components:
           $ref: "#/components/schemas/NewsRisk"
         tradeSetup:
           $ref: "#/components/schemas/TradeSetup"
+        directionForecast:
+          $ref: "#/components/schemas/DirectionForecast"
       required:
         - pair
         - timestamp
@@ -491,6 +493,122 @@ components:
         - note
         - newsRisk
         - tradeSetup
+        - directionForecast
+
+    DirectionFactor:
+      type: object
+      description: One model input and how hard it pushed the forecast
+      properties:
+        label:
+          type: string
+          description: Human-readable Indonesian label
+        value:
+          type: number
+          description: Standardised feature value (z-score) used by the model
+        contribution:
+          type: number
+          description: Signed log-odds contribution; positive pushes BUY, negative pushes SELL
+      required:
+        - label
+        - value
+        - contribution
+
+    DirectionForecast:
+      type: object
+      description: >
+        Probability that price reaches +1 ATR before -1 ATR within the model's
+        prediction horizon (horizonBars). The score is the model probability, not a
+        heuristic point total, and it is independent of the entry-confidence score.
+        It does not set TP or SL.
+      properties:
+        direction:
+          type: string
+          enum: [BUY, SELL]
+        score:
+          type: number
+          description: 50-100. Probability of the stated direction, in percent.
+        strength:
+          type: string
+          enum: [Kuat, Sedang, Lemah]
+        probabilityUp:
+          type: number
+          description: Model probability that price moves up first, 0-1
+        baseRateUp:
+          type: number
+          description: Unconditional up rate in the calibration sample
+        edge:
+          type: number
+          description: Probability of the stated direction minus its base rate
+        horizonBars:
+          type: number
+          description: Prediction horizon in M15 bars
+        horizonHours:
+          type: number
+          description: Prediction horizon in hours
+        factors:
+          type: array
+          items:
+            $ref: "#/components/schemas/DirectionFactor"
+        calibration:
+          type: object
+          description: Historical hit rate of this score bucket on non-overlapping calibration rows
+          properties:
+            bucket:
+              type: string
+            samples:
+              type: number
+            accuracy:
+              type: number
+          required:
+            - bucket
+            - samples
+            - accuracy
+        validation:
+          type: object
+          description: One-off chronological holdout result for the fitted model
+          properties:
+            from:
+              type: string
+              format: date-time
+            to:
+              type: string
+              format: date-time
+            samples:
+              type: number
+            accuracy:
+              type: number
+            auc:
+              type: number
+          required:
+            - from
+            - to
+            - samples
+            - accuracy
+            - auc
+        model:
+          type: string
+          description: Model identifier and version
+        trainedThrough:
+          type: string
+          format: date-time
+          description: Last calibration timestamp used to fit the model
+        note:
+          type: string
+          description: Plain-language explanation of the forecast and its limits
+      required:
+        - direction
+        - score
+        - strength
+        - probabilityUp
+        - baseRateUp
+        - edge
+        - horizonBars
+        - horizonHours
+        - factors
+        - validation
+        - model
+        - trainedThrough
+        - note
 
     BacktestBucket:
       type: object

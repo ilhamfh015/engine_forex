@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ChecklistItem } from './checklistItem';
+import type { DirectionForecast } from './directionForecast';
 import type { MarketAnalysisConfidenceLevel } from './marketAnalysisConfidenceLevel';
 import type { MarketSummary } from './marketSummary';
 import type { NewsRisk } from './newsRisk';
@@ -40,4 +41,5 @@ export interface MarketAnalysis {
   note: string;
   newsRisk: NewsRisk;
   tradeSetup: TradeSetup;
+  directionForecast: DirectionForecast;
 }

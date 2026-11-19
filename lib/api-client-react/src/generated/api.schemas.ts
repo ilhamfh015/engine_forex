@@ -258,6 +258,86 @@ export const MarketAnalysisConfidenceLevel = {
   VeryLow: 'VeryLow',
 } as const;
 
+export type DirectionForecastDirection = typeof DirectionForecastDirection[keyof typeof DirectionForecastDirection];
+
+
+export const DirectionForecastDirection = {
+  BUY: 'BUY',
+  SELL: 'SELL',
+} as const;
+
+export type DirectionForecastStrength = typeof DirectionForecastStrength[keyof typeof DirectionForecastStrength];
+
+
+export const DirectionForecastStrength = {
+  Kuat: 'Kuat',
+  Sedang: 'Sedang',
+  Lemah: 'Lemah',
+} as const;
+
+/**
+ * One model input and how hard it pushed the forecast
+ */
+export interface DirectionFactor {
+  /** Human-readable Indonesian label */
+  label: string;
+  /** Standardised feature value (z-score) used by the model */
+  value: number;
+  /** Signed log-odds contribution; positive pushes BUY, negative pushes SELL */
+  contribution: number;
+}
+
+/**
+ * Historical hit rate of this score bucket on non-overlapping calibration rows
+ */
+export type DirectionForecastCalibration = {
+  bucket: string;
+  samples: number;
+  accuracy: number;
+};
+
+/**
+ * One-off chronological holdout result for the fitted model
+ */
+export type DirectionForecastValidation = {
+  from: string;
+  to: string;
+  samples: number;
+  accuracy: number;
+  auc: number;
+};
+
+/**
+ * Probability that price reaches +1 ATR before -1 ATR within the model's prediction horizon (horizonBars). The score is the model probability, not a heuristic point total, and it is independent of the entry-confidence score. It does not set TP or SL.
+ */
+export interface DirectionForecast {
+  direction: DirectionForecastDirection;
+  /** 50-100. Probability of the stated direction, in percent. */
+  score: number;
+  strength: DirectionForecastStrength;
+  /** Model probability that price moves up first, 0-1 */
+  probabilityUp: number;
+  /** Unconditional up rate in the calibration sample */
+  baseRateUp: number;
+  /** Probability of the stated direction minus its base rate */
+  edge: number;
+  /** Prediction horizon in M15 bars */
+  horizonBars: number;
+  /** Prediction horizon in hours */
+  horizonHours: number;
+  factors: DirectionFactor[];
+  /** Historical hit rate of this score bucket on non-overlapping calibration rows */
+  calibration?: DirectionForecastCalibration;
+  /** One-off chronological holdout result for the fitted model */
+  validation: DirectionForecastValidation;
+  /** Model identifier and version */
+  model: string;
+  /** Last calibration timestamp used to fit the model */
+  trainedThrough: string;
+  /** Plain-language explanation of the forecast and its limits */
+  note: string;
+}
+
 /**
  * Full market analysis response for a pair
  */
@@ -286,6 +366,7 @@ export interface MarketAnalysis {
   note: string;
   newsRisk: NewsRisk;
   tradeSetup: TradeSetup;
+  directionForecast: DirectionForecast;
 }
 
 /**

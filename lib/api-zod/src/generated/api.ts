@@ -119,7 +119,37 @@ export const GetAnalysisResponse = zod.object({
   "riskRewardRatio": zod.number().describe('Planned reward\/risk ratio from the entry midpoint to TP2'),
   "riskPoints": zod.number().describe('Risk in price points (entry zone mid to SL)'),
   "pipSize": zod.number().describe('Pip\/point size for this instrument')
-}).describe('Optimal trade setup levels — entry zone, SL, and TP targets')
+}).describe('Optimal trade setup levels — entry zone, SL, and TP targets'),
+  "directionForecast": zod.object({
+  "direction": zod.enum(['BUY', 'SELL']),
+  "score": zod.number().describe('50-100. Probability of the stated direction, in percent.'),
+  "strength": zod.enum(['Kuat', 'Sedang', 'Lemah']),
+  "probabilityUp": zod.number().describe('Model probability that price moves up first, 0-1'),
+  "baseRateUp": zod.number().describe('Unconditional up rate in the calibration sample'),
+  "edge": zod.number().describe('Probability of the stated direction minus its base rate'),
+  "horizonBars": zod.number().describe('Prediction horizon in M15 bars'),
+  "horizonHours": zod.number().describe('Prediction horizon in hours'),
+  "factors": zod.array(zod.object({
+  "label": zod.string().describe('Human-readable Indonesian label'),
+  "value": zod.number().describe('Standardised feature value (z-score) used by the model'),
+  "contribution": zod.number().describe('Signed log-odds contribution; positive pushes BUY, negative pushes SELL')
+}).describe('One model input and how hard it pushed the forecast')),
+  "calibration": zod.object({
+  "bucket": zod.string(),
+  "samples": zod.number(),
+  "accuracy": zod.number()
+}).optional().describe('Historical hit rate of this score bucket on non-overlapping calibration rows'),
+  "validation": zod.object({
+  "from": zod.coerce.date(),
+  "to": zod.coerce.date(),
+  "samples": zod.number(),
+  "accuracy": zod.number(),
+  "auc": zod.number()
+}).describe('One-off chronological holdout result for the fitted model'),
+  "model": zod.string().describe('Model identifier and version'),
+  "trainedThrough": zod.coerce.date().describe('Last calibration timestamp used to fit the model'),
+  "note": zod.string().describe('Plain-language explanation of the forecast and its limits')
+}).describe('Probability that price reaches +1 ATR before -1 ATR within the model\'s prediction horizon (horizonBars). The score is the model probability, not a heuristic point total, and it is independent of the entry-confidence score. It does not set TP or SL.\n')
 }).describe('Full market analysis response for a pair')
 
 
