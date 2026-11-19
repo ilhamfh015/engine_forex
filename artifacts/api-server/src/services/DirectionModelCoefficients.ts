@@ -5,10 +5,10 @@
  * once. Re-run `pnpm --filter @workspace/api-server run backtest:direction`
  * to regenerate after new data arrives, and do not hand-edit.
  *
- * Fit details: horizon 20 M15 bars, barrier 1 ATR,
- * feature stride 4, lambda 0.1, 4264 calibration rows.
+ * Fit details: horizon 8 M15 bars, barrier 0.5 ATR,
+ * feature stride 4, lambda 0.1, 4277 calibration rows.
  * Lambda and the strength cutoffs were chosen on an inner time split of the
- * calibration block (1066 rows, 214 non-overlapping), never on the holdout.
+ * calibration block (1070 rows, 535 non-overlapping), never on the holdout.
  */
 export interface DirectionBucketStat {
   low: number;
@@ -48,30 +48,30 @@ export interface DirectionModelParameters {
 }
 
 export const DIRECTION_MODEL: DirectionModelParameters = {  version: "logistic-direction-v1",
-  generatedAt: "2026-11-19T11:59:26.051Z",
-  trainedThrough: "2026-11-04T09:30:00.000Z",
-  horizonBars: 20,
-  barrierAtr: 1,
-  samples: 4264,
-  baseRateUp: 0.4725,
-  intercept: -0.102865,
+  generatedAt: "2026-11-19T12:21:21.955Z",
+  trainedThrough: "2026-11-04T11:45:00.000Z",
+  horizonBars: 8,
+  barrierAtr: 0.5,
+  samples: 4277,
+  baseRateUp: 0.4949,
+  intercept: -0.073896,
   features: ["m15Dmi","m15Rsi","m15DistEma","m15Momentum"],
-  weights: [0.158612, -0.160155, -0.044645, -0.021844],
-  means: [-0.017712, 0.001139, 0.016378, 0.002183],
-  stds: [0.309198, 0.219672, 1.26527, 1.217697],
+  weights: [0.144832, -0.157426, -0.047947, -0.038315],
+  means: [-0.017483, 0.001648, 0.019143, 0.003381],
+  stds: [0.309084, 0.219663, 1.266605, 1.220736],
   strongCutoff: 101,
   mediumCutoff: 55,
   calibrationBuckets: [
-    { low: 50, high: 54, samples: 173, accuracy: 0.566 },
-    { low: 55, high: 59, samples: 36, accuracy: 0.611 },
-    { low: 60, high: 64, samples: 5, accuracy: 0.8 },
+    { low: 50, high: 54, samples: 398, accuracy: 0.568 },
+    { low: 55, high: 59, samples: 126, accuracy: 0.532 },
+    { low: 60, high: 64, samples: 11, accuracy: 0.545 },
   ],
   validation: {
-    from: "2026-11-04T11:30:00.000Z",
-    to: "2026-11-19T17:45:00.000Z",
-    samples: 367,
-    accuracy: 0.564,
-    auc: 0.56,
+    from: "2026-11-04T12:30:00.000Z",
+    to: "2026-11-19T20:30:00.000Z",
+    samples: 916,
+    accuracy: 0.544,
+    auc: 0.559,
   },
-  caveat: "Holdout hanya 367 sampel dan sudah pernah dilihat saat membandingkan varian lain, jadi angka 56% (AUC 0.56) masih indikatif, belum konfirmasi independen. Riwayat data yang tersedia pendek, sehingga model yang lebih besar akan overfit; versi ini sengaja memakai sedikit input.",
+  caveat: "Holdout hanya 916 sampel dan sudah pernah dilihat saat membandingkan varian lain, jadi angka 54% (AUC 0.56) masih indikatif, belum konfirmasi independen. Riwayat data yang tersedia pendek, sehingga model yang lebih besar akan overfit; versi ini sengaja memakai sedikit input.",
 };

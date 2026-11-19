@@ -66,8 +66,8 @@ router.get("/analysis/:pair", async (req: Request, res: Response) => {
     const trendM15 = analyzeTrendFromCandles(closedM15);
 
     // Direction forecast: an independent probability that price moves up
-    // before down over the model's prediction horizon (5 hours). It never sets
-    // TP or SL; it only answers "which side is more likely next".
+    // before down over the model's prediction horizon. It never sets TP or SL;
+    // it only answers "which side is more likely next".
     const directionForecast = scoreDirection(closedH1, closedM15, trendH1, trendM15);
 
     // 3. Build trade setup before confidence so the score uses the actual

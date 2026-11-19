@@ -39,8 +39,8 @@ import {
 
 // Defaults match the shipped model so a plain `backtest:direction` reproduces
 // the committed artifact; override them only when comparing variants.
-const HORIZON_BARS = Number(process.env.DIRECTION_HORIZON ?? 20);
-const BARRIER_ATR = Number(process.env.DIRECTION_BARRIER ?? 1);
+const HORIZON_BARS = Number(process.env.DIRECTION_HORIZON ?? 8);
+const BARRIER_ATR = Number(process.env.DIRECTION_BARRIER ?? 0.5);
 const STRIDE_BARS = 4;
 const OVERLAP_EVERY = Math.max(1, Math.round(HORIZON_BARS / STRIDE_BARS));
 const WINDOW_CANDLES = 99;

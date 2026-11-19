@@ -81,25 +81,25 @@ The all-pairs overview fetches H1 and M15 candles for five instruments. Its cold
 
 The dashboard shows a second, independent number: **which way price is more likely to move next**, with its own model and its own card. It deliberately does not reuse the confluence score. The confluence score ranks setup quality for a limit-entry replay; it was never fitted to predict direction, and its factors (value zone, reward/risk) describe the entry plan rather than the next move. Mixing the two would make both numbers uninterpretable.
 
-- **What is predicted.** Whether price touches `+1 ATR` before `-1 ATR` inside the next 20 closed M15 bars (5 hours). If neither barrier is touched, the sign of the horizon return decides. A bar that touches both is resolved by that bar's close. This label exists **only for evaluation** — the engine never uses it to set, move, or suggest a TP or SL.
+- **What is predicted.** Whether price touches `+0.5 ATR` before `-0.5 ATR` inside the next 8 closed M15 bars (2 hours). If neither barrier is touched, the sign of the horizon return decides. A bar that touches both is resolved by that bar's close. This label exists **only for evaluation** — the engine never uses it to set, move, or suggest a TP or SL.
 - **Score meaning.** The score is the model's own probability, so `50` is a coin flip, not a point total. `62` means "setups in this bucket moved in the stated direction about 62% of the time in validation".
-- **Inputs.** Four ATR-normalised M15 features: DMI(+DI − −DI), RSI(14) centred on 50, distance to EMA21, and 1-hour momentum. A 14-feature H1+M15 version was fitted first and rejected: it reached AUC 0.60 in-sample but only 0.507 on the holdout, which is what 7 weeks of data does to a model that size. The smaller set was picked by a mechanical rule, not by taste.
-- **Honest split.** Rows overlap heavily (a label spans 5 hours, features are sampled every hour), so every reported accuracy uses a **non-overlapping subset** (every 5th row per pair). Overlapping rows would have reported 53–55% where the independent subset says 51% or worse.
-- **Nested selection.** λ and the score-strength cutoffs are chosen on an **inner time split inside the calibration block** (1,066 rows, 214 non-overlapping), never on the holdout. Choosing them on training rows always picks the least regularised model, which is exactly what happened before this was fixed.
-- **Measured result.** Inner validation: 57.9% accuracy / AUC 0.571 on 214 non-overlapping rows, against a 56.5% majority-class baseline. Holdout: 56.4% accuracy / AUC 0.560 on 367 non-overlapping rows, against 54.5% majority. The `score ≥ 55` slice hit 59.4% on 101 holdout rows against a 45.5% base rate.
-- **What that is worth.** AUC 0.56 on 367 rows is weak, not proven. The holdout has also been inspected for rejected candidate models, so it is no longer a clean confirmation set, and the API states this in the forecast `note`. Treat the card as context, not as a signal to size up on. Below `score 55` there is no evidence of any edge.
+- **Inputs.** Four ATR-normalised M15 features: DMI(+DI − −DI), RSI(14) centred on 50, distance to EMA21, and 1-hour momentum. A 14-feature H1+M15 version was fitted first and rejected (AUC 0.60 in-sample, 0.507 on holdout over ~7 weeks of data). The smaller set and the 2h/0.5 ATR target were picked by a mechanical rule on an inner validation split, not by taste. A 2h/1 ATR target showed no edge on that split, so the barrier is smaller than the older 5h/1 ATR experiment.
+- **Honest split.** Rows overlap (a label spans 2 hours, features are sampled every hour), so every reported accuracy uses a **non-overlapping subset** (every 2nd row per pair). Overlapping rows would overstate significance.
+- **Nested selection.** λ and the score-strength cutoffs are chosen on an **inner time split inside the calibration block** (1,070 rows, 535 non-overlapping), never on the holdout. Choosing them on training rows always picks the least regularised model.
+- **Measured result.** Inner validation: 55.9% accuracy / AUC 0.564 on 535 non-overlapping rows, against a 50.5% majority-class baseline. Holdout: 54.4% accuracy / AUC 0.559 on 916 non-overlapping rows, against 51.1% majority. The `score ≥ 55` slice hit 58.8% on 233 holdout rows against a 51.1% base rate.
+- **What that is worth.** AUC ~0.56 is weak, not proven. The holdout has also been inspected for rejected candidate models, so it is no longer a clean confirmation set, and the API states this in the forecast `note`. Treat the card as context, not as a signal to size up on. Below `score 55` there is no evidence of any edge.
 
-The existing H1-direction rule is *not* a forward predictor on this sample: on the same independent holdout it scored 50.7% accuracy / AUC 0.491, i.e. a coin flip. That is why the forecast uses its own fitted model instead of echoing the trend card.
+The existing H1-direction rule is *not* a forward predictor on this sample: on the same independent holdout it scored 50.3% accuracy / AUC 0.507, i.e. a coin flip. That is why the forecast uses its own fitted model instead of echoing the trend card.
 
 ```bash
 # Regenerate the model (no database, no runtime training)
 pnpm --filter @workspace/api-server run backtest:direction
 ```
 
-It writes `artifacts/api-server/src/services/DirectionModelCoefficients.ts`; the service and dashboard read only those compiled constants. Plain defaults (horizon 20 bars, barrier 1 ATR, the four M15 features) reproduce the committed artifact. Candle and feature caches live in `backtest-results/direction-*-cache.json`, so alternative horizons and feature subsets can be compared without refetching:
+It writes `artifacts/api-server/src/services/DirectionModelCoefficients.ts`; the service and dashboard read only those compiled constants. Plain defaults (horizon 8 bars, barrier 0.5 ATR, the four M15 features) reproduce the committed artifact. Candle and feature caches live in `backtest-results/direction-*-cache.json`, so alternative horizons and feature subsets can be compared without refetching:
 
 ```bash
-DIRECTION_HORIZON=28 DIRECTION_BARRIER=1 DIRECTION_FEATURES=m15Dmi,m15Rsi \
+DIRECTION_HORIZON=16 DIRECTION_BARRIER=1 DIRECTION_FEATURES=m15Dmi,m15Rsi \
   DIRECTION_HOLDOUT=off pnpm --filter @workspace/api-server run backtest:direction
 ```
 

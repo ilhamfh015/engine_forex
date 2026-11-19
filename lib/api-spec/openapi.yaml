@@ -516,10 +516,10 @@ components:
     DirectionForecast:
       type: object
       description: >
-        Probability that price reaches +1 ATR before -1 ATR within the model's
-        prediction horizon (horizonBars). The score is the model probability, not a
-        heuristic point total, and it is independent of the entry-confidence score.
-        It does not set TP or SL.
+        Probability that price reaches +barrierAtr ATR before -barrierAtr ATR within
+        the model's prediction horizon (horizonBars/horizonHours). The score is the
+        model probability, not a heuristic point total, and it is independent of the
+        entry-confidence score. It does not set TP or SL.
       properties:
         direction:
           type: string
@@ -545,6 +545,9 @@ components:
         horizonHours:
           type: number
           description: Prediction horizon in hours
+        barrierAtr:
+          type: number
+          description: ATR multiple used as the up/down prediction barrier
         factors:
           type: array
           items:
@@ -604,6 +607,7 @@ components:
         - edge
         - horizonBars
         - horizonHours
+        - barrierAtr
         - factors
         - validation
         - model

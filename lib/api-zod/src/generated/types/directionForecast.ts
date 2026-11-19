@@ -12,7 +12,7 @@ import type { DirectionForecastStrength } from './directionForecastStrength';
 import type { DirectionForecastValidation } from './directionForecastValidation';
 
 /**
- * Probability that price reaches +1 ATR before -1 ATR within the model's prediction horizon (horizonBars). The score is the model probability, not a heuristic point total, and it is independent of the entry-confidence score. It does not set TP or SL.
+ * Probability that price reaches +barrierAtr ATR before -barrierAtr ATR within the model's prediction horizon (horizonBars/horizonHours). The score is the model probability, not a heuristic point total, and it is independent of the entry-confidence score. It does not set TP or SL.
  */
 export interface DirectionForecast {
   direction: DirectionForecastDirection;
@@ -29,6 +29,8 @@ export interface DirectionForecast {
   horizonBars: number;
   /** Prediction horizon in hours */
   horizonHours: number;
+  /** ATR multiple used as the up/down prediction barrier */
+  barrierAtr: number;
   factors: DirectionFactor[];
   /** Historical hit rate of this score bucket on non-overlapping calibration rows */
   calibration?: DirectionForecastCalibration;

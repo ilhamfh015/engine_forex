@@ -46,7 +46,7 @@ export function DirectionCard({ forecast, index = 0 }: DirectionCardProps) {
             Prediksi arah
           </p>
           <h3 id="direction-heading" className="mt-1 text-sm text-muted-foreground">
-            Peluang arah dalam {forecast.horizonHours} jam ke depan
+            Peluang arah ±{forecast.barrierAtr} ATR dalam {forecast.horizonHours} jam ke depan
           </h3>
         </div>
         <span className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${strengthTone.text} ${strengthTone.bg} ${strengthTone.border}`}>

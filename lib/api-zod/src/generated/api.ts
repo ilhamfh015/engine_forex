@@ -129,6 +129,7 @@ export const GetAnalysisResponse = zod.object({
   "edge": zod.number().describe('Probability of the stated direction minus its base rate'),
   "horizonBars": zod.number().describe('Prediction horizon in M15 bars'),
   "horizonHours": zod.number().describe('Prediction horizon in hours'),
+  "barrierAtr": zod.number().describe('ATR multiple used as the up\/down prediction barrier'),
   "factors": zod.array(zod.object({
   "label": zod.string().describe('Human-readable Indonesian label'),
   "value": zod.number().describe('Standardised feature value (z-score) used by the model'),
@@ -149,7 +150,7 @@ export const GetAnalysisResponse = zod.object({
   "model": zod.string().describe('Model identifier and version'),
   "trainedThrough": zod.coerce.date().describe('Last calibration timestamp used to fit the model'),
   "note": zod.string().describe('Plain-language explanation of the forecast and its limits')
-}).describe('Probability that price reaches +1 ATR before -1 ATR within the model\'s prediction horizon (horizonBars). The score is the model probability, not a heuristic point total, and it is independent of the entry-confidence score. It does not set TP or SL.\n')
+}).describe('Probability that price reaches +barrierAtr ATR before -barrierAtr ATR within the model\'s prediction horizon (horizonBars\/horizonHours). The score is the model probability, not a heuristic point total, and it is independent of the entry-confidence score. It does not set TP or SL.\n')
 }).describe('Full market analysis response for a pair')
 
 

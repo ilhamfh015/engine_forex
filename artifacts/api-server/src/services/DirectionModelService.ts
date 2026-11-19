@@ -7,9 +7,9 @@
  *   DirectionModelService  → "which way is price more likely to move next?"
  *
  * The direction forecast is a small logistic model, not another hand-weighted
- * score. It predicts the probability that price reaches +1 ATR before -1 ATR
- * within the model's horizon (currently 20 M15 bars = 5 hours), using only
- * information that is already closed at the signal bar.
+ * score. It predicts the probability that price reaches +B ATR before -B ATR
+ * within the model's horizon (see the fitted coefficients for B and duration),
+ * using only information that is already closed at the signal bar.
  *
  * Why a separate model instead of reusing the confluence score: the confluence
  * score was fitted to rank setup quality for a limit-entry replay. It was never
@@ -87,6 +87,8 @@ export interface DirectionForecast {
   edge: number;
   horizonBars: number;
   horizonHours: number;
+  /** ATR multiple used as the up/down barrier for this prediction. */
+  barrierAtr: number;
   /** Contributions sorted by absolute impact, strongest first. */
   factors: DirectionFactor[];
   /** Historical hit rate of this score bucket on non-overlapping rows. */
@@ -247,8 +249,8 @@ export function scoreDirection(
   );
 
   const note = [
-    `Prediksi arah ${horizonHours} jam ke depan: ${direction} dengan skor ${score}/100.`,
-    `Ini probabilitas model historis, bukan kepastian: ${score} berarti sekitar ${score}% setup serupa bergerak ke arah ${direction} lebih dulu.`,
+    `Prediksi arah ${horizonHours} jam ke depan (target ±${DIRECTION_MODEL.barrierAtr} ATR): ${direction} dengan skor ${score}/100.`,
+    `Artinya, model memperkirakan harga lebih dulu menyentuh +${DIRECTION_MODEL.barrierAtr} ATR sebelum -${DIRECTION_MODEL.barrierAtr} ATR (atau sebaliknya) dalam ${horizonHours} jam. Ini probabilitas historis, bukan kepastian.`,
     bucket
       ? `Bucket skor ini benar ${(bucket.accuracy * 100).toFixed(0)}% pada ${bucket.samples} sampel validasi non-overlap.`
       : "",
@@ -268,6 +270,7 @@ export function scoreDirection(
     edge: Number(edge.toFixed(4)),
     horizonBars: DIRECTION_MODEL.horizonBars,
     horizonHours,
+    barrierAtr: DIRECTION_MODEL.barrierAtr,
     factors,
     ...(bucket
       ? { calibration: { bucket: `${bucket.low}-${bucket.high}`, samples: bucket.samples, accuracy: bucket.accuracy } }
