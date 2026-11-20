@@ -14,7 +14,7 @@ import { OverviewBar } from '@/components/OverviewBar';
 import { DashboardSkeleton } from '@/components/DashboardSkeleton';
 import { Button } from '@/components/ui/button';
 import { useNow } from '@/hooks/use-now';
-import { candleFreshness, formatDuration, formatPrice, formatWib } from '@/lib/format';
+import { candleFreshness, formatDuration, formatPrice, formatWib, marketKind } from '@/lib/format';
 import {
   useGetAnalysis,
   getGetAnalysisQueryKey,
@@ -90,7 +90,22 @@ export default function Dashboard() {
     return <DashboardSkeleton />;
   }
 
-  const freshness = candleFreshness(analysis.trendM15.candleTime, now);
+  const market = marketKind(selectedPair);
+  const freshness = candleFreshness(analysis.trendM15.candleTime, now, 15, market);
+  const cryptoFeedLag = market === 'crypto' && freshness.state === 'stale' && freshness.ageMinutes > 120;
+  const bannerSevere = freshness.state === 'closed' || freshness.ageMinutes > 120;
+  const bannerTitle =
+    freshness.state === 'closed'
+      ? 'Pasar kemungkinan sedang tutup.'
+      : cryptoFeedLag
+        ? 'Feed data kripto tertinggal.'
+        : 'Candle terakhir sudah agak lama.';
+  const bannerBody =
+    freshness.state === 'closed'
+      ? 'Bias, skor, dan level di bawah berasal dari kondisi sebelum pasar tutup — jangan dipakai sebagai kondisi terkini.'
+      : cryptoFeedLag
+        ? `${selectedPair} diperdagangkan 24/7, jadi ini keterlambatan data dari feed — bukan pasar tutup. Jangan pakai bias, skor, dan level di bawah sebagai kondisi terkini.`
+        : 'Feed data mungkin terlambat; periksa ulang sebelum memakai level di bawah.';
 
   return (
     <div className="min-h-screen bg-background" data-testid="page-dashboard">
@@ -139,22 +154,15 @@ export default function Dashboard() {
           <div
             role="status"
             className={`flex items-start gap-2.5 rounded-xl border px-4 py-3 text-sm print:hidden ${
-              freshness.state === 'closed'
-                ? 'border-amber-500/30 bg-amber-500/10'
-                : 'border-border bg-muted/40'
+              bannerSevere ? 'border-amber-500/30 bg-amber-500/10' : 'border-border bg-muted/40'
             }`}
             data-testid="banner-candle-freshness"
           >
             <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" aria-hidden="true" />
             <span className="text-foreground">
-              <strong className="font-semibold">
-                {freshness.state === 'closed' ? 'Pasar kemungkinan sedang tutup.' : 'Candle terakhir sudah agak lama.'}
-              </strong>{' '}
+              <strong className="font-semibold">{bannerTitle}</strong>{' '}
               Candle M15 terakhir {formatWib(analysis.trendM15.candleTime)} WIB, sekitar{' '}
-              {formatDuration(freshness.ageMinutes)} lalu.{' '}
-              {freshness.state === 'closed'
-                ? 'Bias, skor, dan level di bawah berasal dari kondisi sebelum pasar tutup — jangan dipakai sebagai kondisi terkini.'
-                : 'Feed data mungkin terlambat; periksa ulang sebelum memakai level di bawah.'}
+              {formatDuration(freshness.ageMinutes)} lalu. {bannerBody}
             </span>
           </div>
         )}

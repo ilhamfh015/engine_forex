@@ -44,8 +44,33 @@ export function formatDuration(minutes: number): string {
 
 export type FreshnessState = 'fresh' | 'stale' | 'closed';
 
+/**
+ * Crypto pairs trade around the clock, so a quiet feed there always means the
+ * data is lagging — never that the market is closed.
+ */
+export type MarketKind = 'forex' | 'crypto';
+
+const CRYPTO_BASES = ['BTC', 'ETH', 'SOL', 'XRP', 'DOGE', 'ADA', 'BNB', 'LTC'];
+
+export function marketKind(pair: string): MarketKind {
+  const symbol = pair.toUpperCase();
+  return CRYPTO_BASES.some((base) => symbol.startsWith(base)) ? 'crypto' : 'forex';
+}
+
+/** Forex closes Friday 22:00 UTC and reopens Sunday 22:00 UTC. */
+export function isForexMarketClosed(nowMs: number): boolean {
+  const at = new Date(nowMs);
+  const day = at.getUTCDay(); // 0 = Sunday, 6 = Saturday
+  const hour = at.getUTCHours();
+  if (day === 6) return true;
+  if (day === 5 && hour >= 22) return true;
+  if (day === 0 && hour < 22) return true;
+  return false;
+}
+
 export interface CandleFreshness {
   state: FreshnessState;
+  market: MarketKind;
   /** Minutes since the candle finished forming. */
   ageMinutes: number;
   /** Approximate close time of the last closed candle. */
@@ -58,27 +83,44 @@ export interface CandleFreshness {
  * the age is measured from open + 15 minutes.
  *
  * fresh  : age <= 30 min (about two bars) — feed is keeping up
- * stale  : 30–120 min — provider lag or a quiet session
- * closed : > 120 min — most likely the market is closed
+ * stale  : older than that — provider lag (or a quiet session for forex)
+ * closed : older than 120 min *and* the forex weekend session is in effect.
+ *          Crypto never reaches this state because it trades 24/7.
  */
-export function candleFreshness(candleTime: string, now: number, timeframeMinutes = 15): CandleFreshness {
+export function candleFreshness(
+  candleTime: string,
+  now: number,
+  timeframeMinutes = 15,
+  market: MarketKind = 'forex',
+): CandleFreshness {
   const openMs = Date.parse(candleTime);
 
   if (!Number.isFinite(openMs)) {
-    return { state: 'stale', ageMinutes: 0, closedAt: candleTime, label: 'Waktu candle tidak diketahui' };
+    return {
+      state: 'stale',
+      market,
+      ageMinutes: 0,
+      closedAt: candleTime,
+      label: 'Waktu candle tidak diketahui',
+    };
   }
 
   const closedMs = openMs + timeframeMinutes * 60_000;
   const ageMinutes = Math.max(0, Math.floor((now - closedMs) / 60_000));
-  const state: FreshnessState = ageMinutes <= 30 ? 'fresh' : ageMinutes <= 120 ? 'stale' : 'closed';
+  const state: FreshnessState =
+    ageMinutes <= 30
+      ? 'fresh'
+      : ageMinutes > 120 && market === 'forex' && isForexMarketClosed(now)
+        ? 'closed'
+        : 'stale';
 
   const label =
     state === 'fresh'
       ? 'Data segar'
-      : state === 'stale'
-        ? `Candle ${formatDuration(ageMinutes)} lalu`
-        : 'Pasar kemungkinan tutup';
+      : state === 'closed'
+        ? 'Pasar kemungkinan tutup'
+        : `Candle ${formatDuration(ageMinutes)} lalu`;
 
-  return { state, ageMinutes, closedAt: new Date(closedMs).toISOString(), label };
+  return { state, market, ageMinutes, closedAt: new Date(closedMs).toISOString(), label };
 }
 

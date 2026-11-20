@@ -3,7 +3,7 @@ import type { MarketAnalysis } from '@workspace/api-client-react';
 import { AnimatedNumber } from '@/components/AnimatedNumber';
 import { scoreTone } from '@/components/ScoreRing';
 import { useNow } from '@/hooks/use-now';
-import { candleFreshness, formatPrice, formatWib, priceDecimals } from '@/lib/format';
+import { candleFreshness, formatPrice, formatWib, marketKind, priceDecimals } from '@/lib/format';
 
 interface OverviewBarProps {
   analysis: MarketAnalysis;
@@ -44,7 +44,7 @@ export function OverviewBar({ analysis, pair }: OverviewBarProps) {
   const tone = scoreTone(analysis.confidenceLevel);
   const news = NEWS_COPY[analysis.newsRisk.status] ?? NEWS_COPY.UNAVAILABLE;
   const price = analysis.trendM15?.currentPrice ?? analysis.tradeSetup.currentPrice;
-  const freshness = candleFreshness(analysis.trendM15.candleTime, now);
+  const freshness = candleFreshness(analysis.trendM15.candleTime, now, 15, marketKind(pair));
   const freshnessTone = FRESHNESS_COPY[freshness.state];
 
   return (
