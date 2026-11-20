@@ -120,6 +120,7 @@ async function fetchFromApi(
     `?symbol=${encodeURIComponent(symbol)}` +
     `&interval=${INTERVAL_MAP[timeframe]}` +
     `&outputsize=${count}` +
+    `&timezone=UTC` +
     `&apikey=${apiKey}`;
 
   const request = () => fetch(url, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
@@ -142,10 +143,31 @@ async function fetchFromApi(
     throw new Error(`Twelve Data error: ${data.message ?? "No data"}`);
   }
 
-  const candles = parseTwelveDataCandles(data.values);
+  // Provider timestamps are pinned to UTC so the API contract is unambiguous
+  // regardless of the server's own timezone or the browser's.
+  const candles = parseTwelveDataCandles(data.values).map((candle) => ({
+    ...candle,
+    datetime: toUtcIso(candle.datetime),
+  }));
 
   cache.set(cacheKey, { candles, expiresAt: Date.now() + CACHE_TTL_MS[timeframe] });
   return candles;
+}
+
+/**
+ * Twelve Data returns candle datetimes without an offset, in the exchange's own
+ * timezone (BTC/USD defaults to UTC, forex pairs to UTC+11). Consumers parsed
+ * those strings as browser-local time, which shifted candle ages by hours and
+ * made the dashboard report a fresh crypto feed as "market closed" (or a stale
+ * forex feed as "fresh"). Requests now pass `timezone=UTC`, so the value can be
+ * pinned to an explicit UTC instant.
+ */
+export function toUtcIso(datetime: string): string {
+  const trimmed = datetime.trim();
+  const hasZone = /(?:[zZ]|[+-]\d{2}:?\d{2})$/.test(trimmed);
+  const ms = Date.parse(hasZone ? trimmed : `${trimmed.replace(" ", "T")}Z`);
+  if (!Number.isFinite(ms)) throw new Error(`Invalid candle timestamp: ${datetime}`);
+  return new Date(ms).toISOString();
 }
 
 export function parseTwelveDataCandles(values: TwelveDataValue[]): Candle[] {

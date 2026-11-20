@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseTwelveDataCandles } from "./TwelveDataService.js";
+import { parseTwelveDataCandles, toUtcIso } from "./TwelveDataService.js";
 
 const validValues = [
   { datetime: "2026-11-09 10:15:00", open: "1.1010", high: "1.1020", low: "1.1000", close: "1.1015" },
@@ -37,4 +37,13 @@ test("rejects invalid timestamps and duplicate or out-of-order candles", () => {
     () => parseTwelveDataCandles([validValues[0], validValues[0]]),
     /not in chronological order/i,
   );
+});
+
+test("pins provider candle timestamps to explicit UTC", () => {
+  // Naive provider strings are interpreted as UTC, not server-local time.
+  assert.equal(toUtcIso("2026-11-09 10:15:00"), "2026-11-09T10:15:00.000Z");
+  // Values that already carry an offset keep their instant.
+  assert.equal(toUtcIso("2026-11-09T13:15:00+11:00"), "2026-11-09T02:15:00.000Z");
+  assert.equal(toUtcIso("2026-11-09T10:15:00Z"), "2026-11-09T10:15:00.000Z");
+  assert.throws(() => toUtcIso("not-a-time"), /invalid candle timestamp/i);
 });
