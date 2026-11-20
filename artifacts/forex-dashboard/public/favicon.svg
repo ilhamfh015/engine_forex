@@ -1,3 +1,19 @@
 <svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect width="180" height="180" rx="36" fill="#FF3C00"/>
+  <defs>
+    <linearGradient id="bg" x1="18" y1="8" x2="162" y2="172" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#111d31"/>
+      <stop offset="1" stop-color="#0a111f"/>
+    </linearGradient>
+    <linearGradient id="bars" x1="46" y1="44" x2="134" y2="136" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3ddc97"/>
+      <stop offset="1" stop-color="#1fb874"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="180" height="180" rx="40" fill="url(#bg)"/>
+  <rect x="1" y="1" width="178" height="178" rx="39" stroke="#1e2c42" stroke-width="2"/>
+
+  <rect x="46" y="96" width="24" height="38" rx="7" fill="url(#bars)" opacity="0.55"/>
+  <rect x="78" y="72" width="24" height="62" rx="7" fill="url(#bars)" opacity="0.8"/>
+  <rect x="110" y="46" width="24" height="88" rx="7" fill="url(#bars)"/>
 </svg>

@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
-import { TrendingUp, TrendingDown } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react';
 import type { TrendData } from '@workspace/api-client-react';
+import { formatWib } from '@/lib/format';
 
 interface TrendCardProps {
   timeframe: 'H1' | 'M15';
@@ -8,63 +9,98 @@ interface TrendCardProps {
   index: number;
 }
 
+const STATE_COPY = {
+  TRENDING: { label: 'Trending', className: 'text-primary border-primary/25 bg-primary/10' },
+  TRANSITION: { label: 'Transisi', className: 'text-amber-500 border-amber-500/25 bg-amber-500/10' },
+  RANGING: { label: 'Ranging', className: 'text-muted-foreground border-border bg-muted/40' },
+} as const;
+
 export function TrendCard({ timeframe, trend, index }: TrendCardProps) {
   const isBuy = trend.direction === 'BUY';
-  const bgColor = isBuy ? 'bg-primary/10' : 'bg-destructive/10';
-  const borderColor = isBuy ? 'border-primary/30' : 'border-destructive/30';
-  const textColor = isBuy ? 'text-primary' : 'text-destructive';
-  const glowClass = isBuy ? 'pulse-glow-green' : 'pulse-glow-red';
-  const stateColor = trend.marketState === 'TRENDING'
-    ? textColor
-    : trend.marketState === 'TRANSITION'
-      ? 'text-yellow-500'
-      : 'text-muted-foreground';
+  const tone = isBuy ? 'text-primary' : 'text-destructive';
+  const soft = isBuy ? 'bg-primary/10 border-primary/25' : 'bg-destructive/10 border-destructive/25';
+  const state = STATE_COPY[trend.marketState] ?? STATE_COPY.RANGING;
+  const Icon = isBuy ? ArrowUpRight : ArrowDownRight;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
+    <motion.article
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay: index * 0.1 }}
-      className={`relative overflow-hidden rounded-xl border ${borderColor} ${bgColor} backdrop-blur-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-lg ${glowClass}`}
+      transition={{ duration: 0.35, delay: index * 0.05 }}
+      className="panel panel-pad"
+      aria-label={`Tren ${timeframe}`}
       data-testid={`card-trend-${timeframe}`}
     >
-      <div className="p-6">
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <p className="text-sm font-medium text-muted-foreground mb-1">Trend {timeframe}</p>
-            <div className="flex items-center gap-2">
-              {isBuy ? (
-                <TrendingUp className={`h-6 w-6 ${textColor}`} />
-              ) : (
-                <TrendingDown className={`h-6 w-6 ${textColor}`} />
-              )}
-              <span className={`text-3xl font-bold ${textColor}`} data-testid={`text-direction-${timeframe}`}>
-                {trend.direction}
-              </span>
-            </div>
-          </div>
-          <div className={`px-3 py-1 rounded-full ${bgColor} border ${borderColor}`}>
-            <span className={`text-sm font-semibold ${textColor}`} data-testid={`text-structure-${timeframe}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="eyebrow">Tren {timeframe}</p>
+          <div className="mt-2 flex items-center gap-2">
+            <Icon className={`h-5 w-5 ${tone}`} aria-hidden="true" />
+            <span className={`text-2xl font-bold leading-none ${tone}`} data-testid={`text-direction-${timeframe}`}>
+              {trend.direction}
+            </span>
+            <span className="pill border-border text-muted-foreground" data-testid={`text-structure-${timeframe}`}>
               {trend.structure}
             </span>
           </div>
         </div>
-        <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
-          <span className={`rounded-full border px-2 py-1 font-semibold ${borderColor} ${stateColor}`}>
-            {trend.marketState}
-          </span>
-          <span className="rounded-full border border-card-border px-2 py-1 text-muted-foreground">
+
+        <div className="text-right">
+          <span className={`pill ${soft} ${tone}`}>
+            <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true" />
             {trend.strength}
           </span>
-          <span className="text-muted-foreground">RSI {trend.rsi.toFixed(1)}</span>
-          <span className="text-muted-foreground">ADX {trend.adx.toFixed(1)}</span>
-           <span className="text-muted-foreground">DI+ {trend.diPlus.toFixed(1)}</span>
-           <span className="text-muted-foreground">DI- {trend.diMinus.toFixed(1)}</span>
+          <p className={`mt-1.5 text-[11px] font-medium ${state.className.split(' ')[0]}`}>{state.label}</p>
         </div>
-        <p className="text-sm text-muted-foreground leading-relaxed" data-testid={`text-explanation-${timeframe}`}>
-          {trend.explanation}
-        </p>
       </div>
-    </motion.div>
+
+      <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-border/60 pt-4 sm:grid-cols-4">
+        <div>
+          <dt className="metric-label">RSI 14</dt>
+          <dd className="num mt-0.5 text-sm font-semibold text-foreground">{trend.rsi.toFixed(1)}</dd>
+          <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-muted">
+            <div
+              className={`h-full rounded-full ${trend.rsi >= 50 ? 'bg-primary/70' : 'bg-destructive/70'}`}
+              style={{ width: `${Math.min(100, Math.max(0, trend.rsi))}%` }}
+            />
+          </div>
+        </div>
+
+        <div>
+          <dt className="metric-label">ADX 14</dt>
+          <dd className="num mt-0.5 text-sm font-semibold text-foreground">{trend.adx.toFixed(1)}</dd>
+          <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-foreground/40"
+              style={{ width: `${Math.min(100, (trend.adx / 50) * 100)}%` }}
+            />
+          </div>
+        </div>
+
+        <div>
+          <dt className="metric-label">DI+</dt>
+          <dd className="num mt-0.5 text-sm font-semibold text-primary">{trend.diPlus.toFixed(1)}</dd>
+        </div>
+
+        <div>
+          <dt className="metric-label">DI−</dt>
+          <dd className="num mt-0.5 text-sm font-semibold text-destructive">{trend.diMinus.toFixed(1)}</dd>
+        </div>
+      </dl>
+
+      <p
+        className="mt-4 flex items-start gap-1.5 text-[13px] leading-relaxed text-muted-foreground"
+        title={trend.explanation}
+        data-testid={`text-explanation-${timeframe}`}
+      >
+        <Minus className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-50" aria-hidden="true" />
+        <span className="line-clamp-3">{trend.explanation}</span>
+      </p>
+
+      <p className="mt-3 text-[11px] text-muted-foreground/80">
+        Candle terakhir {formatWib(trend.candleTime)} WIB
+        {trend.adxSlope < 0 ? ' · ADX melemah' : ' · ADX menguat'}
+      </p>
+    </motion.article>
   );
 }

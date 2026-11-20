@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
+import { AlertTriangle, Clock3, WifiOff } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { TrendCard } from '@/components/TrendCard';
 import { ConfidenceCard } from '@/components/ConfidenceCard';
@@ -9,7 +10,11 @@ import { PairsOverview } from '@/components/PairsOverview';
 import { TradingViewWidget } from '@/components/TradingViewWidget';
 import { TradeSetupCard } from '@/components/TradeSetupCard';
 import { NewsRiskCard } from '@/components/NewsRiskCard';
-import { LoadingSpinner } from '@/components/LoadingSpinner';
+import { OverviewBar } from '@/components/OverviewBar';
+import { DashboardSkeleton } from '@/components/DashboardSkeleton';
+import { Button } from '@/components/ui/button';
+import { useNow } from '@/hooks/use-now';
+import { candleFreshness, formatDuration, formatPrice, formatWib } from '@/lib/format';
 import {
   useGetAnalysis,
   getGetAnalysisQueryKey,
@@ -17,20 +22,26 @@ import {
   getGetAllPairsSummaryQueryKey,
 } from '@workspace/api-client-react';
 
-export default function Dashboard() {
-  const [selectedPair, setSelectedPair] = useState<'EURUSD' | 'GBPUSD' | 'USDJPY' | 'XAUUSD' | 'BTCUSD'>('EURUSD');
-  const queryClient = useQueryClient();
+type Pair = 'EURUSD' | 'GBPUSD' | 'USDJPY' | 'XAUUSD' | 'BTCUSD';
 
-  const { data: analysis, isLoading: isLoadingAnalysis, isFetching: isFetchingAnalysis, error: analysisError } = useGetAnalysis(
-    selectedPair,
-    {
-      query: {
-        queryKey: getGetAnalysisQueryKey(selectedPair),
-        enabled: !!selectedPair,
-        refetchInterval: 60000, // Auto-refresh every 60s
-      }
-    }
-  );
+export default function Dashboard() {
+  const [selectedPair, setSelectedPair] = useState<Pair>('EURUSD');
+  const queryClient = useQueryClient();
+  const now = useNow();
+
+  const {
+    data: analysis,
+    isLoading: isLoadingAnalysis,
+    isFetching: isFetchingAnalysis,
+    error: analysisError,
+    dataUpdatedAt,
+  } = useGetAnalysis(selectedPair, {
+    query: {
+      queryKey: getGetAnalysisQueryKey(selectedPair),
+      enabled: !!selectedPair,
+      refetchInterval: 60000, // Auto-refresh every 60s
+    },
+  });
 
   const { data: allPairs } = useGetAllPairsSummary({
     query: {
@@ -40,7 +51,7 @@ export default function Dashboard() {
       enabled: !!analysis,
       staleTime: 15 * 60 * 1000,
       refetchInterval: 15 * 60 * 1000,
-    }
+    },
   });
 
   const handleRefresh = () => {
@@ -49,33 +60,37 @@ export default function Dashboard() {
   };
 
   const handlePairChange = (pair: string) => {
-    setSelectedPair(pair as typeof selectedPair);
+    setSelectedPair(pair as Pair);
   };
 
   if (isLoadingAnalysis && !analysis) {
-    return <LoadingSpinner fullPage />;
+    return <DashboardSkeleton />;
   }
 
   if (!analysis && analysisError) {
     return (
-      <div className="min-h-screen w-full flex items-center justify-center bg-background">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-destructive mb-2">Error Loading Analysis</h2>
-          <p className="text-muted-foreground mb-4">Failed to fetch market data</p>
-          <button
-            onClick={handleRefresh}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
-          >
-            Retry
-          </button>
+      <div className="flex min-h-screen w-full items-center justify-center bg-background px-4">
+        <div className="panel w-full max-w-md p-6 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-destructive/25 bg-destructive/10">
+            <WifiOff className="h-6 w-6 text-destructive" aria-hidden="true" />
+          </div>
+          <h2 className="mt-4 text-lg font-semibold text-foreground">Gagal memuat analisa</h2>
+          <p className="mt-1.5 text-sm text-muted-foreground">
+            Data pasar tidak bisa diambil saat ini. Periksa koneksi atau kunci API, lalu coba lagi.
+          </p>
+          <Button onClick={handleRefresh} className="mt-5">
+            Coba lagi
+          </Button>
         </div>
       </div>
     );
   }
 
   if (!analysis) {
-    return <LoadingSpinner fullPage />;
+    return <DashboardSkeleton />;
   }
+
+  const freshness = candleFreshness(analysis.trendM15.candleTime, now);
 
   return (
     <div className="min-h-screen bg-background" data-testid="page-dashboard">
@@ -85,63 +100,104 @@ export default function Dashboard() {
         onRefresh={handleRefresh}
         isRefreshing={isFetchingAnalysis}
         lastUpdate={analysis.timestamp}
+        dataUpdatedAt={dataUpdatedAt}
+        pairSummaries={allPairs}
       />
 
-      <main className="container mx-auto px-4 py-8 space-y-8">
+      <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
         {analysisError && (
           <div
             role="alert"
-            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-foreground"
+            className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm"
           >
-            <span>Refresh failed. Showing the last successful analysis; verify data freshness before using it.</span>
+            <span className="flex items-start gap-2 text-foreground">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" aria-hidden="true" />
+              Refresh gagal. Yang tampil adalah analisa terakhir yang berhasil — periksa kesegaran data sebelum dipakai.
+            </span>
             <button
               onClick={handleRefresh}
               className="font-semibold text-primary underline-offset-4 hover:underline"
             >
-              Retry
+              Coba lagi
             </button>
           </div>
         )}
 
-        {/* Main Analysis Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <TrendCard timeframe="H1" trend={analysis.trendH1} index={0} />
-          <TrendCard timeframe="M15" trend={analysis.trendM15} index={1} />
-          <ConfidenceCard
-            confidence={analysis.confidence}
-            confidenceLevel={analysis.confidenceLevel}
-            checklist={analysis.checklist}
-            index={2}
-          />
-          <SummaryCard summary={analysis.summary} index={3} />
+        <div className="hidden print:block">
+          <h1 className="text-xl font-bold text-foreground">Analisa {selectedPair} — Forex Market Structure</h1>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Analisa dibuat {formatWib(analysis.timestamp, true)} WIB · Candle M15 terakhir{' '}
+            {formatWib(analysis.trendM15.candleTime)} WIB
+          </p>
+          <p className="mt-1 text-xs text-foreground">
+            Harga {formatPrice(analysis.trendM15.currentPrice, selectedPair)} · Bias {analysis.summary.bias} · Skor{' '}
+            {analysis.confidence}/100 ({analysis.confidenceLevel}) · Status {analysis.tradeSetup.entryZoneLabel}
+          </p>
         </div>
 
-        <TradeSetupCard setup={analysis.tradeSetup} pair={selectedPair} index={4} />
-        <NewsRiskCard risk={analysis.newsRisk} index={5} />
-
-        {/* All Pairs Overview */}
-        {allPairs && allPairs.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.4 }}
+        {freshness.state !== 'fresh' && (
+          <div
+            role="status"
+            className={`flex items-start gap-2.5 rounded-xl border px-4 py-3 text-sm print:hidden ${
+              freshness.state === 'closed'
+                ? 'border-amber-500/30 bg-amber-500/10'
+                : 'border-border bg-muted/40'
+            }`}
+            data-testid="banner-candle-freshness"
           >
-            <PairsOverview
-              pairs={allPairs}
-              selectedPair={selectedPair}
-              onPairSelect={handlePairChange}
+            <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" aria-hidden="true" />
+            <span className="text-foreground">
+              <strong className="font-semibold">
+                {freshness.state === 'closed' ? 'Pasar kemungkinan sedang tutup.' : 'Candle terakhir sudah agak lama.'}
+              </strong>{' '}
+              Candle M15 terakhir {formatWib(analysis.trendM15.candleTime)} WIB, sekitar{' '}
+              {formatDuration(freshness.ageMinutes)} lalu.{' '}
+              {freshness.state === 'closed'
+                ? 'Bias, skor, dan level di bawah berasal dari kondisi sebelum pasar tutup — jangan dipakai sebagai kondisi terkini.'
+                : 'Feed data mungkin terlambat; periksa ulang sebelum memakai level di bawah.'}
+            </span>
+          </div>
+        )}
+
+        <OverviewBar analysis={analysis} pair={selectedPair} />
+
+        <div className="grid gap-6 xl:grid-cols-3 xl:items-start">
+          <div className="space-y-6 xl:col-span-2">
+            <TradeSetupCard setup={analysis.tradeSetup} pair={selectedPair} index={1} />
+
+            <div className="grid gap-6 md:grid-cols-2">
+              <TrendCard timeframe="H1" trend={analysis.trendH1} index={2} />
+              <TrendCard timeframe="M15" trend={analysis.trendM15} index={3} />
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <ConfidenceCard
+              confidence={analysis.confidence}
+              confidenceLevel={analysis.confidenceLevel}
+              checklist={analysis.checklist}
+              index={4}
             />
+            <SummaryCard summary={analysis.summary} note={analysis.note} index={5} />
+          </div>
+        </div>
+
+        {allPairs && allPairs.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+            <PairsOverview pairs={allPairs} selectedPair={selectedPair} onPairSelect={handlePairChange} />
           </motion.div>
         )}
 
-        {/* TradingView Chart */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.5 }}
-        >
+        <NewsRiskCard risk={analysis.newsRisk} index={6} />
+
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
           <TradingViewWidget pair={selectedPair} />
         </motion.div>
+
+        <footer className="border-t border-border/60 pt-4 pb-2 text-center text-[11px] leading-relaxed text-muted-foreground">
+          Analisa ini bersifat edukasi dan konteks, bukan rekomendasi investasi. Selalu verifikasi level dan risiko
+          sebelum eksekusi.
+        </footer>
       </main>
     </div>
   );
